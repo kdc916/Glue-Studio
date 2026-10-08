@@ -287,3 +287,7 @@ CONFIRMED PRODUCTION BUG: `app.js` ended with literal `</script><script>` (not J
 - 새 GIF를 적용하면 이전 Pivot, Trim, Alpha 보정, 여백, 재생 배속, 실행 취소 이력을 초기화합니다. GIF 크기와 프레임 수로 타일 및 그리드를 다시 계산하고 프레임별 재생시간은 유지합니다.
 - 여러 GIF를 한 번에 추가하는 경우 첫 GIF에서만 교체하고 뒤의 파일은 새 작업에 추가합니다.
 - 브라우저 테스트: PNG 2프레임 → GIF 6프레임 교체, 12프레임 이어 붙이기, 취소, 잘못된 GIF 데이터 보존, PNG 저장 확인.
+
+
+## v1.7.4 Cumulative Handoff
+GitHub v1.7.1 baseline plus v1.7.2 new project and v1.7.3 static sequence replace requirements. v14 previously passed one image per call to core.addFiles. v1.7.4 batches static images and handles GIF group before one static batch. Shared importMode selects replace(default) or append. v14.resetWorkspace clears frames, alpha, pivot and timers; core stages bitmaps before old project disposal. New project optionally calls native input chooser immediately. v15/v16 field lists include importMode; standalone inline code mirrors modules. Regression: PNG3 -> GIF6 -> PNG3, append, cancel, damaged file, new project picker.

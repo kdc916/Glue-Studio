@@ -7,7 +7,7 @@ for(let n=0;n<500&&!(window.__GlueTest&&window.GlueV14&&window.GlueV15&&window.G
 if(!(window.__GlueTest&&window.GlueV14&&window.GlueV15&&window.GlueZIP))return console.error('Glue Studio v1.6: required modules missing');
 const core=window.__GlueTest, state=core.state, pivot=window.__GlueV11Test.v11;
 const DB='maxvfx-glue-recovery-v1', STORE='snapshots', KEY='latest', MAX_FRAMES=80, MAX_PIXELS=12000000, MAX_BYTES=48*1024*1024;
-const CFG=['tileW','tileH','columns','gap','padding','fit','trim','power2','alphaMode','keyColor','tolerance','feather','cutoff','bleed','gifW','gifH','fps','gifThreshold','gifDither','gifTransparent','gifBg','v13Align','v13Edge','v13EdgeAmount','v13Matte','v13Timing','previewSpeed','pivotX','pivotY','channelMode','gifImportLayout','gifImportMode'];
+const CFG=['tileW','tileH','columns','gap','padding','fit','trim','power2','alphaMode','keyColor','tolerance','feather','cutoff','bleed','gifW','gifH','fps','gifThreshold','gifDither','gifTransparent','gifBg','v13Align','v13Edge','v13EdgeAmount','v13Matte','v13Timing','previewSpeed','pivotX','pivotY','channelMode','gifImportLayout','importMode'];
 let enabled=false, saving=false, dirty=false, timer=0, lastSave=0, lastFingerprint='', activeWorker=null, sequence=0;
 function notify(msg,err=false){$('v16Status').textContent=msg; if(err)console.warn('[Glue v1.6]',msg);}
 function storageSetting(){try{return localStorage.getItem('maxvfx-glue-autorecover-enabled')==='1'}catch(_){return false}}

@@ -130,16 +130,34 @@ function renderFrames(){const list=$('frames');list.replaceChildren();if(!state.
 async function loadFile(file){const bitmap=await createImageBitmap(file);if(bitmap.width>10000||bitmap.height>10000){bitmap.close();throw Error('입력 이미지가 10,000px을 초과합니다.');}
  let thumb=makeCanvas(100,96),ctx=thumb.getContext('2d');let s=Math.min(100/bitmap.width,96/bitmap.height);ctx.drawImage(bitmap,(100-bitmap.width*s)/2,(96-bitmap.height*s)/2,bitmap.width*s,bitmap.height*s);
  return{id:state.nextId++,name:file.name,bitmap,thumb:thumb.toDataURL('image/png')};}
-async function addFiles(files){if(window.GlueV14?.importFiles && !window.GlueV14.passthrough)return window.GlueV14.importFiles(files);const images=Array.from(files).filter(f=>f.type.startsWith('image/')||/\.(png|jpe?g|webp|bmp|gif)$/i.test(f.name));if(!images.length){toast('지원하는 이미지 파일이 없습니다.',true);return;}
- if(state.frames.length+images.length>512){toast('한 번에 최대 512프레임까지 사용할 수 있습니다.',true);return;}
- if(state.busy)return;busy('이미지 가져오는 중',`${images.length}개 이미지 준비`);await sleep();let success=[],failure=[];
- for(const file of images.sort((a,b)=>numeric.compare(a.name,b.name))){try{success.push(await loadFile(file));}catch(e){failure.push(`${file.name}: ${e.message}`);}}
- const wasEmpty=state.frames.length===0;state.frames.push(...success);
- if(wasEmpty&&success[0]){const bw=success[0].bitmap.width,bh=success[0].bitmap.height;
-   if($('tileW').value==='256'&&$('tileH').value==='256'){$('tileW').value=Math.min(4096,bw);$('tileH').value=Math.min(4096,bh);}
-   if($('gifW').value==='256'&&$('gifH').value==='256'){$('gifW').value=Math.min(2048,bw);$('gifH').value=Math.min(2048,bh);}
- }
- state.selected=Math.max(0,state.frames.length-success.length);unbusy();invalidate();renderFrames();toast(`${success.length}개 프레임을 추가했습니다.${failure.length?' / 실패 '+failure.length+'개':''}`,!!failure.length);if(failure.length)console.warn('파일 로딩 오류',failure);
+async function addFiles(files, options={}){
+ if(window.GlueV14?.importFiles&&!window.GlueV14.passthrough)return window.GlueV14.importFiles(files);
+ const images=Array.from(files||[]).filter(f=>f.type.startsWith('image/')||/\.(png|jpe?g|webp|bmp)$/i.test(f.name));
+ if(!images.length){toast('지원하는 이미지 파일이 없습니다.',true);return {count:0,failed:['지원하는 이미지 없음']};}
+ const replace=options.replace===undefined?$('importMode')?.value!=='append':Boolean(options.replace);
+ if(replace&&state.frames.length&&!options.skipConfirm&&!confirm('새 시퀀스로 작업을 시작할까요?\n기존 프레임과 편집 설정이 교체됩니다.'))return {count:0,cancelled:true};
+ if((replace?0:state.frames.length)+images.length>512){toast('최대 512프레임까지 지원합니다.',true);return {count:0,failed:['512프레임 초과']};}
+ if(state.busy)return {count:0,busy:true};
+ busy('이미지 가져오는 중',images.length+'개 이미지 준비');await sleep();
+ const success=[],failure=[];
+ try{
+  for(const file of images.sort((a,b)=>numeric.compare(a.name,b.name))){try{success.push(await loadFile(file));}catch(e){failure.push(file.name+': '+e.message);}}
+  if(success.length){
+   if(replace){if(window.GlueV14?.resetWorkspace)window.GlueV14.resetWorkspace();else{stopPlay();disposeAll();}}
+   const wasEmpty=state.frames.length===0;state.frames.push(...success);
+   if(wasEmpty){const w=success[0].bitmap.width,h=success[0].bitmap.height;
+    $('tileW').value=Math.min(w,4096);$('tileH').value=Math.min(h,4096);
+    $('gifW').value=Math.min(w,2048);$('gifH').value=Math.min(h,2048);
+    $('columns').value=Math.min(16,Math.ceil(Math.sqrt(state.frames.length)));
+   }
+   state.selected=replace?0:Math.max(0,state.frames.length-success.length);
+   window.GlueV15?.history?.resetHistory?.();
+  }
+ }finally{unbusy();invalidate();renderFrames();}
+ if(success.length)toast((replace?'새 작업 · ':'기존 작업에 추가 · ')+success.length+'프레임 불러오기 완료'+(failure.length?' / 일부 실패':''),!!failure.length);
+ else toast('파일을 불러오지 못했습니다. '+(failure[0]||''),true);
+ if(failure.length)console.warn('[Glue Studio] 파일 로딩 실패',failure);
+ return {count:success.length,failed:failure};
 }
 async function sliceSheet(file){if(!file)return;const cols=getNum('sliceCols',1,128),rows=getNum('sliceRows',1,128);if(cols*rows>512){toast('시트 분할은 최대 512프레임입니다.',true);return;}
  busy('시트 분할 중','이미지 영역을 프레임으로 변환합니다.');await sleep();let bitmap;let pieces=[];
@@ -202,6 +220,17 @@ function bind(){
  $('sliceDialog').addEventListener('close',()=>{if($('sliceDialog').returnValue==='apply')sliceSheet(state.sliceFile);});
  $('btnHelp').addEventListener('click',()=>$('helpDialog').showModal());
  $('btnReset').addEventListener('click',()=>{for(let id of configIds){const el=$(id);if(el.type==='checkbox')el.checked=el.defaultChecked;else if(el.type==='color')el.value=el.defaultValue;else if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=el.defaultValue;}alphaModeLast='off';alphaProfiles={off:[0,0],black:[0,0],white:[0,0],chroma:[25,30],opaque:[0,0]};updateAlphaUI();invalidate();toast('설정을 기본값으로 되돌렸습니다.');});
+ $('btnNewProject')?.addEventListener('click',()=>{
+  if(state.frames.length&&!confirm('현재 '+state.frames.length+'개 프레임과 편집 설정을 비우고 새 작업을 시작할까요?'))return;
+  if(window.GlueV14?.resetWorkspace)window.GlueV14.resetWorkspace();else{stopPlay();disposeAll();}
+  renderFrames();invalidate();updateStats();
+  if($('importMode'))$('importMode').value='replace';
+  window.GlueV15?.history?.resetHistory?.();
+  window.GlueV16?.deleteSlot?.().catch?.(()=>{});
+  const status=$('fileImportStatus');if(status)status.textContent='새 프로젝트 준비 완료 · 새 파일을 불러와 주세요.';
+  toast('새 프로젝트를 시작합니다.');
+  if($('newAutoPick')?.checked)chooseFile('fileInput');
+ });
  $('btnSort').addEventListener('click',()=>{state.frames.sort((a,b)=>numeric.compare(a.name,b.name));state.selected=0;renderFrames();invalidate();});
  $('btnReverse').addEventListener('click',()=>{state.frames.reverse();state.selected=0;renderFrames();invalidate();});
  $('btnClear').addEventListener('click',()=>{if(!state.frames.length)return;if(!confirm(`${state.frames.length}개 프레임을 제거할까요?`))return;stopPlay();disposeAll();renderFrames();redraw();});
