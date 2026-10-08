@@ -35,8 +35,9 @@ test('file picker opens and PNG plus GIF import, GIF worker export',async({page}
  await expect(page.locator('#fileImportStatus')).toContainText('1프레임');
  const [chooser]=await Promise.all([page.waitForEvent('filechooser'),page.locator('#v14GIFImport').click()]);
  const array=await page.evaluate(async()=>{const w=2,h=2,frames=Array.from({length:2},(_,i)=>{const a=new Uint8ClampedArray(w*h*4);for(let k=0;k<a.length;k+=4){a[k]=i*200;a[k+3]=255;}return a;});const blob=GlueGIF.encode(frames,w,h,{fps:12,threshold:96,transparent:false,dither:false,bg:[0,0,0]});return Array.from(new Uint8Array(await blob.arrayBuffer()))});
+ page.once('dialog',d=>d.accept());
  await chooser.setFiles({name:'sample.gif',mimeType:'image/gif',buffer:Buffer.from(array)});
- await page.waitForFunction(()=>window.__GlueTest.state.frames.length===3);
+ await page.waitForFunction(()=>window.__GlueTest.state.frames.length===2);
  const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#exportGif').click()]);
  expect(download.suggestedFilename()).toMatch(/\.gif$/);
  expect(errors).toEqual([]);
