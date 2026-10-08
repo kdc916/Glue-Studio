@@ -28,7 +28,7 @@ test('file picker opens and PNG plus GIF import, GIF worker export',async({page}
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('/index.html');
  await page.waitForFunction(()=>!!(window.GlueV17&&window.GlueV16&&window.GlueV14));
- const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==','base64');
+ const png=require('fs').readFileSync(require('path').resolve(__dirname,'../../examples/Transparent_Sequence/transparent_01.png'));
  const [picker]=await Promise.all([page.waitForEvent('filechooser'),page.locator('#btnImport').click()]);
  await picker.setFiles({name:'sample.png',mimeType:'image/png',buffer:png});
  await page.waitForFunction(()=>window.__GlueTest.state.frames.length===1);
