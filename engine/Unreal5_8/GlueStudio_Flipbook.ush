@@ -1,0 +1,18 @@
+// Glue Studio v1.2.0: Unreal Material Custom UV helper.
+// uv uses top-left atlas convention; columns/rows from JSON or CSV.
+float2 GlueFlipbookUV(float2 uv, float frame, float2 sheetSize, float2 tileSize,
+                      float columns, float gap, float padding)
+{
+    float colCount = max(1.0, floor(columns + 0.5));
+    float fi = max(0.0, floor(frame + 0.0001));
+    float col = fmod(fi, colCount);
+    float row = floor(fi / colCount);
+    float2 offset = float2(padding, padding) + float2(col, row) * (tileSize + gap);
+    return (offset + saturate(uv) * tileSize) / max(sheetSize, float2(1, 1));
+}
+// Lower-left normalized pivot in JSON. A material position-offset/mesh adjustment
+// is still needed to apply per-frame pivots (Sprite Renderer grid alone cannot).
+float2 GluePivotOffsetLocal(float2 pivotBottomLeft)
+{
+    return float2(0.5 - pivotBottomLeft.x, pivotBottomLeft.y - 0.5);
+}
