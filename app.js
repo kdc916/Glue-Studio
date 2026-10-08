@@ -228,5 +228,3 @@ updateAlphaUI();bind();$('stage').classList.add('bg-checker');updateStats();
 // expose a small test API for local regression checks (does not send or store images).
 window.__GlueTest={alphaProcess,applyBleed,sheetRaw,readConf,state,dimensions,buildFrame,addFiles,sliceSheet,disposeAll,renderFrames,invalidate,toast,busy,unbusy,stopPlay,setView};
 })();
-
-</script><script>
