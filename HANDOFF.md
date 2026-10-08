@@ -259,3 +259,12 @@ Previous files retained; frame imports, PNG/TGA/GIF outputs, PixEffect alpha pro
 - Smart layout finds valid columns, optimizing area and aspect ratio while preserving each frame, Pivot, tile resolution, gap, padding and power-of-two mode.
 - QA: legacy v1.4 GIF all-frame decoder disposal/ZIP+CRC tests and v1.5 pure layout/undo/quality smoke tests passed. Browser file:// navigation blocked by administrator policy, and Unity6/UE5.8 editor integration remains unverified.
 - Next: run true browser E2E in CI, test on mobile memory-limited devices, consider opt-in auto recover via IndexedDB and worker-based image encoding.
+
+
+## v1.6.0 — Recovery + Worker Export (2026-10-08)
+- Files: updated app.js/index.html/standalone/README/HANDOFF; new v16-worker-source.js and v16-addon.js; CI workflow, package.json, browser+unit tests.
+- Opt-in IDB recovery: one slot, compatible project manifest, 80 frames/12M source pixels/48MiB PNG payload; no automatic restoration, no network upload, deletion disables autosave. IndexedDB is best-effort.
+- Core app: transferable worker hook for PNG/TGA encoding and regeneration after detached-buffer worker failure; 96MiB LRU processed-frame cache. GIF and extra RGB/Alpha exports retain existing code paths.
+- CI: Node GIF/ZIP/PNG tests; Playwright Chromium on an HTTP origin for GIF-to-sheet and IndexedDB save, reload, restore, clear; GitHub Actions on push/PR. No runtime npm/CDN dependency.
+- Local Chromium page.set_content passed complete app mount, GIF six-frame import, quality report and PNG download; browser navigation in sandbox blocked by administrator. Real HTTP-origin IndexedDB tests should be assessed by GitHub Actions.
+- Future: GIF compression worker, OffscreenCanvas streaming for truly large sprite sheets, extended browser/memory regression.

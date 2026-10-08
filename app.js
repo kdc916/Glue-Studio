@@ -60,7 +60,7 @@ function calcTrim(frame,c){const k=`${c.alphaMode}|${c.keyColor}|${c.tolerance}|
  for(let y=0,p=3;y<h;y++)for(let x=0;x<w;x++,p+=4)if(bytes[p]>0){minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);}
  const rect=maxX<0?{x:0,y:0,w,h}:{x:minX,y:minY,w:maxX-minX+1,h:maxY-minY+1};frame.trim={key:k,rect};return rect;
 }
-function buildFrame(frame,c){const w=c.tileW,h=c.tileH,key=state.cacheVersion;let old=state.cache.get(frame.id);if(old?.version===key&&old.w===w&&old.h===h)return old.data;
+function buildFrame(frame,c){const w=c.tileW,h=c.tileH,key=state.cacheVersion;let old=state.cache.get(frame.id);if(old?.version===key&&old.w===w&&old.h===h){state.cache.delete(frame.id);state.cache.set(frame.id,old);return old.data;}
  const canvas=makeCanvas(w,h),ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
  let source=c.trim?calcTrim(frame,c):{x:0,y:0,w:frame.bitmap.width,h:frame.bitmap.height};
  if(window.GlueV13?.sourceRect)source=window.GlueV13.sourceRect(frame,c,source);
@@ -73,7 +73,7 @@ function buildFrame(frame,c){const w=c.tileW,h=c.tileH,key=state.cacheVersion;le
  let rgba=ctx.getImageData(0,0,w,h).data;alphaProcess(rgba,c);
  if(window.GlueV13?.process)rgba=window.GlueV13.process(rgba,w,h,c,frame);
  if(c.bleed)applyBleed(rgba,w,h);
- state.cache.set(frame.id,{version:key,w,h,data:rgba});return rgba;
+ const cacheLimit=96*1048576;if(rgba.byteLength<=cacheLimit){state.cache.delete(frame.id);state.cache.set(frame.id,{version:key,w,h,data:rgba});let usage=0;for(const value of state.cache.values())usage+=value.data.byteLength;while(usage>cacheLimit&&state.cache.size){const oldest=state.cache.keys().next().value;usage-=state.cache.get(oldest).data.byteLength;state.cache.delete(oldest);}}return rgba;
 }
 function sheetRaw(c=readConf()){const d=dimensions(c);if(d.width>8192||d.height>8192||d.width*d.height>45000000)throw Error(`시트 해상도 ${d.width}×${d.height}가 제한을 초과했습니다. (최대 변 8192px, 총 4500만 픽셀)`);
  let atlas=new Uint8ClampedArray(d.width*d.height*4);
@@ -178,7 +178,7 @@ async function runExport(type){if(!checkNotEmpty()||state.busy)return;stopPlay()
      name=`${base}_${c.gifW}x${c.gifH}_${c.fps}fps.gif`;
    }else{
      const raw=sheetRaw(c);$('busyDetail').textContent=`${raw.width} × ${raw.height} · ${state.frames.length}프레임`;await sleep();
-     blob=type==='tga'?GlueExport.encodeTGA(raw.bytes,raw.width,raw.height):await GlueExport.encodePNG(raw.bytes,raw.width,raw.height);
+     blob=window.GlueV16?.encodeSheet?await window.GlueV16.encodeSheet(type,raw.bytes,raw.width,raw.height):null;if(!blob){const pixels=raw.bytes.byteLength===0?sheetRaw(c):raw;blob=type==='tga'?GlueExport.encodeTGA(pixels.bytes,pixels.width,pixels.height):await GlueExport.encodePNG(pixels.bytes,pixels.width,pixels.height);}
      name=`${base}_${raw.cols}x${raw.rows}_${raw.width}x${raw.height}.${type}`;
    }
    outputFile(blob,name);toast(`저장 완료: ${name} · ${(blob.size/1048576).toFixed(2)} MB`);

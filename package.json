@@ -1,0 +1,12 @@
+{
+  "name": "maxvfx-glue-studio",
+  "version": "1.6.0",
+  "private": true,
+  "scripts": {
+    "test": "node tests/test_v160_static.cjs",
+    "test:e2e": "playwright test -c playwright.config.cjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0"
+  }
+}

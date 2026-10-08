@@ -1,0 +1,35 @@
+name: Glue Studio Browser Regression
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test dependencies
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Node codec tests
+        run: npm test
+      - name: Browser GIF conversion and recovery tests
+        run: npm run test:e2e
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: glue-studio-browser-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
