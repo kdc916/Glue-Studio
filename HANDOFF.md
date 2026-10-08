@@ -249,3 +249,13 @@ Previous files retained; frame imports, PNG/TGA/GIF outputs, PixEffect alpha pro
 - True per-frame durations editing on visual timeline and preview behavior quality.
 - Animated WebP/APNG export (must preserve alpha and duration).
 - Engine-editor import integration tests against Unity 6 and Unreal 5.8, GitHub Actions headless browser E2E.
+
+## v1.5.0 — Undo/Redo + Atlas QA + Smart Grid (2026-10-08)
+
+- Source added: `v15-addon.js` (plain-source offline addon loaded after v14).
+- Updated `index.html`, `maxVFX_Glue_Studio_Standalone.html`, `README.md`, `HANDOFF.md`.
+- 35-step scalar-only Undo/Redo stores frame IDs/order/timing, form values, global/per-frame pivots; refuses stale source IDs and avoids retaining removed ImageBitmaps. Image import/remove/project replacement is **not undoable**.
+- Quality analyzer: sheet limits (8192px/45MP), estimate 4 bytes/pixel, blank/near-empty frames, suspect edge contact, sample-hash duplicates, gap/bleed/POT and trim risk; async yielding, max 64 frames/14M processed pixels/3.5M sampled pixels; >7.5M-pixel tiles skipped.
+- Smart layout finds valid columns, optimizing area and aspect ratio while preserving each frame, Pivot, tile resolution, gap, padding and power-of-two mode.
+- QA: legacy v1.4 GIF all-frame decoder disposal/ZIP+CRC tests and v1.5 pure layout/undo/quality smoke tests passed. Browser file:// navigation blocked by administrator policy, and Unity6/UE5.8 editor integration remains unverified.
+- Next: run true browser E2E in CI, test on mobile memory-limited devices, consider opt-in auto recover via IndexedDB and worker-based image encoding.
