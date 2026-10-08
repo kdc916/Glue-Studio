@@ -296,3 +296,11 @@ GitHub v1.7.1 baseline plus v1.7.2 new project and v1.7.3 static sequence replac
 ## Windows Desktop Port — 2026-10-08
 
 Electron 44.7.0 기반 NSIS Windows x64 Installer. New files: desktop/main.cjs (secure gluestudio://app/ origin, sandbox, native save dialog and keyboard menu); desktop/generate_icon.py (7-size ICO via Python stdlib); desktop/test-desktop.cjs (desktop validation); WINDOWS_INSTALL.md; .github/workflows/windows-desktop.yml. package.json includes electron-builder config and explicit app file whitelist. Windows runner generates icon, npm test, electron-builder NSIS, SHA256, Actions artifact and public GitHub Release windows-v1.7.4. Existing GitHub Pages and web version stay intact. Unsigned publisher: SmartScreen may warn. Windows GUI E2E and large texture benchmarking remain to be done.
+
+
+## v1.7.5 — Export Center 반응형 패치 (2026-10-08)
+- PNG/TGA/GIF는 3개의 균일한 Grid 버튼으로 배치합니다.
+- 출력 요약/출력 버튼/GIF 백그라운드 인코딩 상태는 별도 영역이므로 상태 문구가 버튼을 밀어내지 않습니다.
+- 창 너비 1250px 이하에서는 세로로 영역 재배치, 480px 이하에서는 버튼을 1열로 표시합니다.
+- 동일한 CSS와 HTML이 GitHub Pages, 단독 실행 HTML, Electron Windows 설치형에 반영됩니다.
+- Chromium 1920/1536/1366/1200/1024/800/600/390/320px 폭 레이아웃 검사 통과. Windows 실제 설치 GUI 테스트는 Windows Actions 빌드와 분리하여 별도 검증이 필요합니다.

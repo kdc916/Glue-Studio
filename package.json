@@ -1,13 +1,14 @@
 {
   "name": "maxvfx-glue-studio",
-  "version": "1.7.4",
+  "version": "1.7.5",
   "private": true,
   "scripts": {
     "test": "node tests/test_v160_static.cjs",
     "test:e2e": "playwright test -c playwright.config.cjs",
     "desktop:start": "electron .",
-    "test:desktop": "node desktop/test-desktop.cjs",
-    "dist:windows": "electron-builder --win nsis --x64 --publish never"
+    "test:desktop": "node desktop/test-desktop.cjs && node desktop/test-export-layout.cjs",
+    "dist:windows": "electron-builder --win nsis --x64 --publish never",
+    "test:export": "node desktop/test-export-layout.cjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",

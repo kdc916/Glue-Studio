@@ -1,9 +1,9 @@
-# maxVFX Glue Studio v1.7.4 — Windows 설치 가이드
+# maxVFX Glue Studio v1.7.5 — Windows 설치 가이드
 
 대상은 Windows 10/11, 64-bit (x64)입니다. 기존 HTML 기능을 인터넷 없이 데스크톱 앱으로 실행합니다.
 
 ## 설치 방법
-1. [Windows Release 페이지](https://github.com/kdc916/Glue-Studio/releases/tag/windows-v1.7.4)에서 maxVFX-Glue-Studio-Setup-1.7.4-x64.exe를 다운로드합니다.
+1. [Windows Release 페이지](https://github.com/kdc916/Glue-Studio/releases/tag/windows-v1.7.5)에서 maxVFX-Glue-Studio-Setup-1.7.5-x64.exe를 다운로드합니다.
 2. 설치 마법사에서 설치 위치를 지정합니다.
 3. 바탕화면 또는 시작 메뉴의 maxVFX Glue Studio로 실행합니다.
 4. 제거: Windows 설정 > 앱 > 설치된 앱 > maxVFX Glue Studio.
@@ -28,7 +28,7 @@ Node.js 22, Python 3.12 설치 후 다음 명령을 실행합니다.
     npm test
     npm run dist:windows
 
-생성 파일: dist/windows/maxVFX-Glue-Studio-Setup-1.7.4-x64.exe
+생성 파일: dist/windows/maxVFX-Glue-Studio-Setup-1.7.5-x64.exe
 
 자동 빌드: GitHub Actions > Windows Desktop Installer. 성공하면 Windows NSIS EXE를 Actions Artifact 및 위 Release에 게시합니다.
 

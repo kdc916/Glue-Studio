@@ -28,7 +28,7 @@ async function encodeGif(frames,width,height,options,onProgress){
  finally{if(timer)clearTimeout(timer);if(worker)worker.terminate();if(url)URL.revokeObjectURL(url)}
 }
 function mount(){const target=$('exportGif');if(!target)return;
- const label=document.createElement('p');label.id='v17WorkerStatus';label.className='small-muted';label.style.cssText='margin:9px 0 0;flex-basis:100%';label.textContent='GIF 출력: 백그라운드 인코딩 준비';target.closest('.export-panel')?.appendChild(label);
+ const panel=target.closest('.export-panel');let label=document.getElementById('v17WorkerStatus');if(!label&&panel){label=document.createElement('p');label.id='v17WorkerStatus';label.className='export-status';label.setAttribute('role','status');label.textContent='GIF 출력: 백그라운드 인코딩 준비';panel.appendChild(label);}
  const help=$('helpDialog')?.querySelector('ol');help?.insertAdjacentHTML('beforeend','<li>파일 선택이 막힐 때는 첫 패널의 직접 선택하기를 누르거나 이미지를 화면에 드래그하세요. GIF 인코딩은 가능한 경우 Worker에서 실행합니다.</li>');
 }
 window.GlueV17={encodeGif,getStats:()=>({lastMode,successes,fallbacks})};

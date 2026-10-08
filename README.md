@@ -162,3 +162,11 @@ GIF 및 PNG/JPG/WEBP/BMP에 공통 **새 작업 / 이어 붙이기** 선택 메�
 ## Windows 설치형 데스크톱 앱
 
 [Windows 10/11 x64 설치 파일 다운로드](https://github.com/kdc916/Glue-Studio/releases/tag/windows-v1.7.4) · [설치 가이드](WINDOWS_INSTALL.md). Electron 오프라인 실행, 시작 메뉴/바탕화면 바로가기, NSIS 제거 지원. 미서명 빌드이므로 SmartScreen 확인이 필요합니다.
+
+
+## v1.7.5 — Export Center 반응형 패치 (2026-10-08)
+- PNG/TGA/GIF는 3개의 균일한 Grid 버튼으로 배치합니다.
+- 출력 요약/출력 버튼/GIF 백그라운드 인코딩 상태는 별도 영역이므로 상태 문구가 버튼을 밀어내지 않습니다.
+- 창 너비 1250px 이하에서는 세로로 영역 재배치, 480px 이하에서는 버튼을 1열로 표시합니다.
+- 동일한 CSS와 HTML이 GitHub Pages, 단독 실행 HTML, Electron Windows 설치형에 반영됩니다.
+- Chromium 1920/1536/1366/1200/1024/800/600/390/320px 폭 레이아웃 검사 통과. Windows 실제 설치 GUI 테스트는 Windows Actions 빌드와 분리하여 별도 검증이 필요합니다.
