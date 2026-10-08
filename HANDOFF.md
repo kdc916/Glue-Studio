@@ -276,3 +276,5 @@ Previous files retained; frame imports, PNG/TGA/GIF outputs, PixEffect alpha pro
 - app.js: direct user gesture showPicker + click fallback; errors and import count exposed. Native label directly tied to fileInput.
 - v17-worker-source.js & v17-addon.js: GIF encoding Worker with fallback; protected old GIF codec behavior.
 - Smoke tests: choose PNG/GIF, GIF->PNG & GIF export, IndexedDB restore, Node GIF/ZIP corruption tests. Ensure Actions completion before confirming success.
+
+CONFIRMED PRODUCTION BUG: `app.js` ended with literal `</script><script>` (not JavaScript), so browser raised SyntaxError Unexpected token '<'. This was the direct reason file selection did not initialize. GitHub commit a1f25ed removed it; v1.7 static regression gates parse all shipped JS files. Use version cache query to defeat stale GitHub Pages assets.

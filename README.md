@@ -142,3 +142,5 @@ engine/Unreal5_8/GlueStudio_Flipbook.ush — Unreal Material UV Helper
 - 파일 선택은 사용자 클릭 이벤트에서 `showPicker()` 또는 `.click()`으로 처리. 네이티브 `label for=fileInput`을 대체 경로로 제공합니다. 오류/프레임 현황을 화면에 표시합니다.
 - GIF는 Web Worker에서 인코딩하며, Worker 오류/미지원 시 원래 인코더로 복귀합니다. 원래 FPS와 투명도, GIF 제한 사항 동일. 프레임 사본 생성으로 순간 메모리 사용량이 증가할 수 있습니다.
 - PNG/GIF 불러오기, 시트 분할, 프로젝트 파일, PNG/TGA/GIF 출력을 브라우저 회귀 테스트로 보호합니다.
+
+**원인 확정:** GitHub 배포본의 `app.js` 파일 끝에 잘못된 HTML `</script><script>`가 포함되어 `SyntaxError: Unexpected token '<'`가 발생했습니다. 이로 인해 기본 UI 초기화와 파일 선택 이벤트가 막혔습니다. 해당 태그를 제거하고 JS 문법 검사를 CI에 추가했습니다.

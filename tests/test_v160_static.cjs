@@ -12,3 +12,11 @@ for(const f of ['gif-codec.js','gif-decoder.js','zip-codec.js','export-codec.js'
  const damaged=new Uint8Array(await zip.arrayBuffer());damaged[45]^=1;assert.throws(()=>ctx.GlueZIP.unpack(damaged));
  console.log('PASS: GIF six frames, PNG, ZIP round trip and corruption rejection');
 })().catch(e=>{console.error(e);process.exitCode=1});
+
+// Deployment gate: all browser modules must remain standalone JavaScript, never HTML script wrappers.
+for(const name of ['app.js','gif-codec.js','vfx-addon.js','v12-addon.js','v13-addon.js','v14-addon.js','v15-addon.js','v16-addon.js','v17-addon.js','v17-worker-source.js']){
+ const code=fs.readFileSync(path.join(root,name),'utf8');
+ assert(code.length>200,'empty '+name);
+ new vm.Script(code,{filename:name});
+}
+assert(!fs.readFileSync(path.join(root,'app.js'),'utf8').includes('</script><script>'),'stray HTML tag inside app.js');
