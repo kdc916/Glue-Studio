@@ -49,3 +49,34 @@ Stack: Vanilla HTML / CSS / JavaScript, offline Canvas API.
 - Multi-frame GIF input decode and per-frame duration support
 
 Keep future changes regression-safe against v1.0 / v1.1 and always ship ZIP plus cumulative handoff MD.
+
+
+---
+
+## v1.2.0 개발 인수인계 (2026-10-08)
+
+### 요구사항 및 구현
+- 실시간 미리보기 재생 배속 0.10×~4.00×, 0.25/0.5/1/2/4× 프리셋, GIF FPS 독립 및 명시적인 동기화 버튼.
+- `v12-addon.js`가 기존 플레이어의 click/space 이벤트를 capture 방식으로 교체. elapsed time 기반 RAF 프레임 진행, 선택/재생/일시정지 유지.
+- GIF 내보내기, PNG/TGA 시트, 알파 제거 및 기존 v1.1 Pivot/채널 Export 기능 유지.
+- Unreal CSV: 각 frame rect(좌상단 기준), UV(좌상단 원점), pivot(좌하단 기준), GIF FPS, sheet 크기, columns/rows.
+- Unity 6: 2D Sprite Data Provider API 기반 `engine/Unity6/GlueStudioAtlasImporter.cs` 선택 텍스처+JSON -> Multiple SpriteRects & Pivot; 동일 이름 GUID 유지 시도.
+- Unreal 5.8: `engine/Unreal5_8/GlueStudio_Flipbook.ush` Material Custom UV helper; Gap/Padding/PowerOfTwo 텍스처 atlas 대응. per-frame pivot은 mesh/WPO 연계 별도 처리해야 함.
+- index.html, Standalone HTML, README 갱신. standalone에는 압축된 추가 모듈을 오프라인 스크립트로 포함.
+
+### 변경 파일
+- 신규 v12-addon.js
+- 신규 engine/Unity6/GlueStudioAtlasImporter.cs 및 engine/Unity6/README.md
+- 신규 engine/Unreal5_8/GlueStudio_Flipbook.ush 및 engine/Unreal5_8/README.md
+- 갱신 index.html, maxVFX_Glue_Studio_Standalone.html, README.md, HANDOFF.md
+
+### 회귀 체크 및 제한
+- Node 검증: 신규 배속과 GIF FPS 분리, 프레임 advance, pause, CSV export 호출 통과.
+- 기존 v1.1 alpha channel/UV/pivot 재정렬 테스트 통과.
+- Playwright Chromium은 이 실행 환경 보안 정책으로 HTTP와 file:// 네비게이션 둘 다 차단되어 실 브라우저 E2E 미실시.
+- Unity6 C# 및 UE5.8 HLSL은 실제 엔진 내 빌드/실행 미검증. 수동 도입 후 검증 권장.
+- GitHub에서 v12-addon.js는 GitHub Pages용 gzip self-extract loader. 읽기 쉬운 원본은 제공 ZIP의 v12-addon.js에 동봉.
+- GitHub 압축형 모듈은 외부 CDN을 쓰지 않지만 구형 브라우저의 DecompressionStream 지원이 필요함.
+
+### 향후 작업
+- frame별 duration, GIF 반투명 디더링 개선, Unity6 임포터 실제 Sprite 참고호환 테스트, Unreal5.8 Niagara VFX Material 실제 연동/자동 import, Pages end-to-end 확인.
