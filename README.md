@@ -161,7 +161,7 @@ GIF 및 PNG/JPG/WEBP/BMP에 공통 **새 작업 / 이어 붙이기** 선택 메�
 
 ## Windows 설치형 데스크톱 앱
 
-[Windows 10/11 x64 설치 파일 다운로드](https://github.com/kdc916/Glue-Studio/releases/tag/windows-v1.7.4) · [설치 가이드](WINDOWS_INSTALL.md). Electron 오프라인 실행, 시작 메뉴/바탕화면 바로가기, NSIS 제거 지원. 미서명 빌드이므로 SmartScreen 확인이 필요합니다.
+[Windows 10/11 x64 설치 파일 다운로드](https://github.com/kdc916/Glue-Studio/releases/tag/windows-v1.7.5) · [설치 가이드](WINDOWS_INSTALL.md). Electron 오프라인 실행, 시작 메뉴/바탕화면 바로가기, NSIS 제거 지원. 미서명 빌드이므로 SmartScreen 확인이 필요합니다.
 
 
 ## v1.7.5 — Export Center 반응형 패치 (2026-10-08)
