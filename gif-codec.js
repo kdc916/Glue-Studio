@@ -65,7 +65,7 @@ function lzw(indices){
 function encode(frames,w,h,config,onProgress){
  if(!frames.length)throw Error('GIF 프레임이 없습니다.');
  if(w>65535||h>65535)throw Error('GIF 크기 제한 초과');
- const fps=clamp(Number(config.fps)||12,1,50),delay=clamp(Math.round(100/fps),2,65535);
+ const fps=clamp(Number(config.fps)||12,1,50),defaultDelay=clamp(Math.round(100/fps),2,65535);
  const options={transparent:!!config.transparent,threshold:clamp(+config.threshold||0,0,255),dither:!!config.dither,bg:config.bg||[0,0,0]};
  const pal=makePalette(frames,options.threshold,options.transparent,options.bg);
  const header=new Uint8Array(13+768);header.set([71,73,70,56,57,97,w&255,(w>>8)&255,h&255,(h>>8)&255,0xf7,0,0]);header.set(pal.palette,13);
@@ -73,6 +73,8 @@ function encode(frames,w,h,config,onProgress){
  let cache=new Uint16Array(32768);
  for(let n=0;n<frames.length;n++){
    const idx=quantize(frames[n],w,h,options,pal,cache);const compressed=lzw(idx);
+   const requested=Array.isArray(config.delaysMs)?Number(config.delaysMs[n]):NaN;
+   const delay=Number.isFinite(requested)?clamp(Math.round(requested/10),2,65535):defaultDelay;
    const gce=Uint8Array.from([0x21,0xf9,4,options.transparent?0x09:0x08,delay&255,(delay>>8)&255,0,0]);
    const descriptor=Uint8Array.from([0x2c,0,0,0,0,w&255,(w>>8)&255,h&255,(h>>8)&255,0]);
    let blocks=[gce,descriptor,Uint8Array.from([8])];

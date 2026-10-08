@@ -1,11 +1,11 @@
-# maxVFX Glue Studio v1.2.0
+# maxVFX Glue Studio v1.3.0
 
 **GlueIT 방식의 스프라이트 시트 편집기를 현대적인 로컬 웹 앱으로 재구현한 독립 프로젝트**입니다. 설치, 로그인, 서버 통신 없이 브라우저에서 이미지 시퀀스를 시트로 묶거나 GIF 애니메이션으로 저장할 수 있습니다.
 
 ## 바로 실행
 
 - **가장 쉬운 방법:** `maxVFX_Glue_Studio_Standalone.html` 더블클릭 → Chrome/Edge로 열기.
-- **웹 호스팅 / 개발용:** `index.html`, `styles.css`, `app.js`, `gif-codec.js`, `export-codec.js`, `vfx-addon.js`, `v12-addon.js`를 같은 폴더에 배치하여 `index.html` 열기. GitHub Pages 또는 일반 정적 호스팅 가능.
+- **웹 호스팅 / 개발용:** `index.html`, `styles.css`, `app.js`, `gif-codec.js`, `export-codec.js`, `vfx-addon.js`, `v12-addon.js`, `v13-addon.js`를 같은 폴더에 배치하여 `index.html` 열기. GitHub Pages 또는 일반 정적 호스팅 가능.
 - 외부 라이브러리와 CDN이 없으며 모든 소스 이미지는 로컬 브라우저 메모리에서 처리됩니다.
 
 ## 기본 제작 순서
@@ -88,3 +88,15 @@ v12-addon.js                        — 재생속도 및 Unreal CSV UI (CDN 미�
 engine/Unity6/GlueStudioAtlasImporter.cs — Unity Sprite Editor JSON Import
 engine/Unreal5_8/GlueStudio_Flipbook.ush — Unreal Material UV Helper
 ```
+
+
+## v1.3.0 — VFX Quality Update (2026-10-08)
+
+- Frame alignment: Legacy (default), Source Registration (untrimmed original coordinates), Alpha Bounding Box Center, Alpha Weighted Center. Auto centering can cancel intended animation movement.
+- Edge Matte: existing-alpha images only, black/white/custom background RGB inverse correction 0-100%; alpha preserved, near-zero alpha protected. Default OFF.
+- Compare dialog: original versus processed frame with checker background.
+- Per-frame time: opt-in 20-60000ms/frame; RAF preview honors variable durations and the existing 0.1-4x preview speed. With toggle OFF, former fixed FPS is kept.
+- GIF: per-frame GIF89a GCE delays rounded to 10ms, minimum 20ms.
+- Atlas JSON / Unreal CSV: new durationMs, variableTiming, alignment and alpha matte fields; existing UV and pivot unchanged.
+- Source file: v13-addon.js; GitHub Pages uses an offline gzip bootstrapper requiring browser DecompressionStream. Readable source shipped in ZIP.
+- QA: Node unit verification passed. Chrome automated navigation blocked by administrator policy; Unity/UE runtime tests not executed.

@@ -63,6 +63,7 @@ function calcTrim(frame,c){const k=`${c.alphaMode}|${c.keyColor}|${c.tolerance}|
 function buildFrame(frame,c){const w=c.tileW,h=c.tileH,key=state.cacheVersion;let old=state.cache.get(frame.id);if(old?.version===key&&old.w===w&&old.h===h)return old.data;
  const canvas=makeCanvas(w,h),ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
  let source=c.trim?calcTrim(frame,c):{x:0,y:0,w:frame.bitmap.width,h:frame.bitmap.height};
+ if(window.GlueV13?.sourceRect)source=window.GlueV13.sourceRect(frame,c,source);
  let dx=0,dy=0,dw=w,dh=h;
  if(c.fit==='contain'||c.fit==='cover'){
    let factor=c.fit==='contain'?Math.min(w/source.w,h/source.h):Math.max(w/source.w,h/source.h);
@@ -70,6 +71,7 @@ function buildFrame(frame,c){const w=c.tileW,h=c.tileH,key=state.cacheVersion;le
  }
  ctx.drawImage(frame.bitmap,source.x,source.y,source.w,source.h,dx,dy,dw,dh);
  let rgba=ctx.getImageData(0,0,w,h).data;alphaProcess(rgba,c);
+ if(window.GlueV13?.process)rgba=window.GlueV13.process(rgba,w,h,c,frame);
  if(c.bleed)applyBleed(rgba,w,h);
  state.cache.set(frame.id,{version:key,w,h,data:rgba});return rgba;
 }
@@ -172,7 +174,7 @@ async function runExport(type){if(!checkNotEmpty()||state.busy)return;stopPlay()
        let rgba=buildFrame(state.frames[i],c),source=canvasWithRGBA(rgba,c.tileW,c.tileH);let dest=makeCanvas(c.gifW,c.gifH),ctx=dest.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingQuality='high';ctx.drawImage(source,0,0,c.gifW,c.gifH);arr.push(ctx.getImageData(0,0,c.gifW,c.gifH).data);
        if(i%8===0){$('busyDetail').textContent=`GIF 프레임 ${i+1} / ${count}`;await sleep();}
      }
-     const bg=hexRGB(c.gifBg);blob=GlueGIF.encode(arr,c.gifW,c.gifH,{fps:c.fps,threshold:c.gifThreshold,transparent:c.gifTransparent,dither:c.gifDither,bg},(n,total)=>{if(n%8===0)$('busyDetail').textContent=`GIF 압축 ${n} / ${total}`;});
+     const bg=hexRGB(c.gifBg);blob=GlueGIF.encode(arr,c.gifW,c.gifH,{fps:c.fps,delaysMs:window.GlueV13?.frameDelays(state.frames,c.fps),threshold:c.gifThreshold,transparent:c.gifTransparent,dither:c.gifDither,bg},(n,total)=>{if(n%8===0)$('busyDetail').textContent=`GIF 압축 ${n} / ${total}`;});
      name=`${base}_${c.gifW}x${c.gifH}_${c.fps}fps.gif`;
    }else{
      const raw=sheetRaw(c);$('busyDetail').textContent=`${raw.width} × ${raw.height} · ${state.frames.length}프레임`;await sleep();

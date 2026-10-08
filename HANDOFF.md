@@ -80,3 +80,9 @@ Keep future changes regression-safe against v1.0 / v1.1 and always ship ZIP plus
 
 ### 향후 작업
 - frame별 duration, GIF 반투명 디더링 개선, Unity6 임포터 실제 Sprite 참고호환 테스트, Unreal5.8 Niagara VFX Material 실제 연동/자동 import, Pages end-to-end 확인.
+
+
+## v1.3.0 cumulative patch (2026-10-08)
+Baseline v1.2.0. Changed app.js (optional sourceRect/process/frameDelays hooks), gif-codec.js (per-frame GIF GCE timing), index.html, standalone, README, HANDOFF; added v13-addon.js.
+Visual alignment: legacy/source registration/alpha bbox/weighted alpha; edge matte black/white/custom RGB reconstruction of existing-alpha images only (alpha unchanged), default OFF. Original vs processed compare dialog. Optional per-frame duration 20-60000ms affects variable RAF playback with existing speed multiplier, GIF centisecond delays, atlas JSON & Unreal CSV durationMs. Existing pivot/UV remain unmodified; auto-centering may alter intended VFX motion.
+Tested with Node: bbox, weighted center, source registration, inverse-matte alpha preservation, default time fallback, GIF89a GCE timing. Chromium E2E blocked by administrator policy; Unity6/UE5.8 editors not executed. v1.4 backlog: portable project ZIP, multiframe GIF import, undo/redo, PNG sequence ZIP, browser E2E.
