@@ -1,4 +1,4 @@
-# maxVFX Glue Studio v1.6.0
+# maxVFX Glue Studio v1.7.0
 
 **GlueIT 방식의 스프라이트 시트 편집기를 현대적인 로컬 웹 앱으로 재구현한 독립 프로젝트**입니다. 설치, 로그인, 서버 통신 없이 브라우저에서 이미지 시퀀스를 시트로 묶거나 GIF 애니메이션으로 저장할 수 있습니다.
 
@@ -135,3 +135,10 @@ engine/Unreal5_8/GlueStudio_Flipbook.ush — Unreal Material UV Helper
 - **LRU 캐시 96MiB:** 처리 프레임 메모리의 상한이며 전체 시트/원본 저장 공간까지 제한하는 것은 아닙니다.
 - **회귀 검사:** Node 코덱 정합성 테스트 및 Playwright 브라우저 GIF 변환/PNG 저장/IndexedDB 복구·삭제 테스트를 별도 `.github/workflows/browser-regression.yml`에서 실행. GitHub Pages 배포와 독립된 CI입니다.
 - 단독 실행 HTML에도 같은 기능이 포함됩니다. `file://`의 IndexedDB는 브라우저마다 제한될 수 있습니다.
+
+
+## v1.7.0 — 파일 선택 긴급 복구 / GIF Worker (2026-10-08)
+- GitHub Pages에서 비동기로 복호화하던 vfx-addon.js/v12-addon.js/v13-addon.js를 일반 JavaScript 원본으로 교체. 로딩 의존성 불안정과 CSP/압축 API 문제 가능성을 줄였습니다.
+- 파일 선택은 사용자 클릭 이벤트에서 `showPicker()` 또는 `.click()`으로 처리. 네이티브 `label for=fileInput`을 대체 경로로 제공합니다. 오류/프레임 현황을 화면에 표시합니다.
+- GIF는 Web Worker에서 인코딩하며, Worker 오류/미지원 시 원래 인코더로 복귀합니다. 원래 FPS와 투명도, GIF 제한 사항 동일. 프레임 사본 생성으로 순간 메모리 사용량이 증가할 수 있습니다.
+- PNG/GIF 불러오기, 시트 분할, 프로젝트 파일, PNG/TGA/GIF 출력을 브라우저 회귀 테스트로 보호합니다.

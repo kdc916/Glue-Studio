@@ -268,3 +268,11 @@ Previous files retained; frame imports, PNG/TGA/GIF outputs, PixEffect alpha pro
 - CI: Node GIF/ZIP/PNG tests; Playwright Chromium on an HTTP origin for GIF-to-sheet and IndexedDB save, reload, restore, clear; GitHub Actions on push/PR. No runtime npm/CDN dependency.
 - Local Chromium page.set_content passed complete app mount, GIF six-frame import, quality report and PNG download; browser navigation in sandbox blocked by administrator. Real HTTP-origin IndexedDB tests should be assessed by GitHub Actions.
 - Future: GIF compression worker, OffscreenCanvas streaming for truly large sprite sheets, extended browser/memory regression.
+
+
+## v1.7.0 — File Import Hotfix & GIF Worker (2026-10-08)
+- User reported file choice failing. GitHub v1.6 browser CI previously FAILED (module initialization timeout) although Pages deployed.
+- Replaced zipped asynchronous bootstrap vfx/v12/v13 JS with readable source from standalone. Root cause hypothesis: compressed/Blob script startup chain could fail; exact environment trigger not proved.
+- app.js: direct user gesture showPicker + click fallback; errors and import count exposed. Native label directly tied to fileInput.
+- v17-worker-source.js & v17-addon.js: GIF encoding Worker with fallback; protected old GIF codec behavior.
+- Smoke tests: choose PNG/GIF, GIF->PNG & GIF export, IndexedDB restore, Node GIF/ZIP corruption tests. Ensure Actions completion before confirming success.

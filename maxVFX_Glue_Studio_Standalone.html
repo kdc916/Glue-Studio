@@ -18,9 +18,9 @@
 <aside class="sidebar" id="sidebar">
  <div class="side-head"><div><small>WORKFLOW</small><h2>제작 설정</h2></div><button class="small-btn" id="btnReset" title="설정을 기본값으로">설정 초기화</button></div>
  <section class="panel"><div class="section-title"><b class="step">01</b><h3>소스 이미지</h3></div>
- <div class="upload-choices"><button id="btnImport" class="primary">＋ 시퀀스 추가</button><button id="btnImportSheet" class="secondary">▦ 시트 분할</button></div>
+ <div class="upload-choices"><button id="btnImport" type="button" class="primary">＋ 시퀀스 추가</button><button id="btnImportSheet" class="secondary">▦ 시트 분할</button></div>
  <p class="small-muted">PNG · JPG · WEBP · BMP · GIF(전체 프레임) · 드래그 앤 드롭</p>
- <div class="mini-stats"><div><strong id="countStat">0</strong><span>프레임</span></div><div><strong id="sourceStat">–</strong><span>원본 해상도</span></div></div>
+ <p class="small-muted" id="fileImportStatus" role="status" aria-live="polite">파일을 불러올 수 없다면 아래 직접 선택하기를 사용하세요.</p><label for="fileInput" class="small-btn" style="display:inline-flex;cursor:pointer;align-items:center;min-height:33px">파일 직접 선택하기 (대체 경로)</label><div class="mini-stats"><div><strong id="countStat">0</strong><span>프레임</span></div><div><strong id="sourceStat">–</strong><span>원본 해상도</span></div></div>
  </section>
  <section class="panel"><div class="section-title"><b class="step">02</b><h3>시트 레이아웃</h3></div>
  <div class="field-grid"><label class="field">프레임 너비 <input id="tileW" type="number" min="1" max="4096" value="256"></label><label class="field">프레임 높이 <input id="tileH" type="number" min="1" max="4096" value="256"></label><label class="field">열(Columns) <input id="columns" type="number" min="1" max="128" value="4"></label><label class="field">간격(Gap) <input id="gap" type="number" min="0" max="256" value="0"></label><label class="field">외곽 여백 <input id="padding" type="number" min="0" max="256" value="0"></label><label class="field">배치 방식 <select id="fit"><option value="contain">비율 유지</option><option value="cover">채우기(크롭)</option><option value="stretch">강제 확대</option></select></label></div>
@@ -53,7 +53,7 @@
  <div class="playbar"><div class="transport"><button id="btnPrev" title="이전 프레임">|◀</button><button id="btnPlay" class="play" title="재생/일시정지">▶</button><button id="btnNext" title="다음 프레임">▶|</button></div><div class="timeline"><input id="scrub" type="range" min="0" max="0" value="0"><div class="timeline-meta"><span id="playTime">FRAME 0 / 0</span><span id="sheetDimensions">–</span></div></div></div>
  <div class="frame-heading"><div><h3>프레임 시퀀스 <span id="frameCount">0</span></h3><p>드래그해서 순서를 바꾸거나, 클릭해서 프레임을 확인할 수 있습니다.</p></div><div class="frame-actions"><button id="btnSort" class="small-btn">이름순 정렬</button><button id="btnReverse" class="small-btn">순서 뒤집기</button><button id="btnClear" class="small-btn danger">전체 제거</button></div></div><div id="frames" class="frames"><div class="frames-placeholder">아직 추가한 이미지가 없습니다.</div></div>
  <div class="export-panel"><div><small>EXPORT CENTER</small><h2>최종 결과물 저장</h2><div class="export-summary" id="exportInfo">이미지를 추가하면 출력 정보가 표시됩니다.</div></div><div class="export-buttons"><button id="exportPng" class="export-btn png"><b>PNG</b><span>투명 스프라이트 시트</span></button><button id="exportTga" class="export-btn"><b>TGA</b><span>32-bit RGBA 시트</span></button><button id="exportGif" class="export-btn gif"><b>GIF</b><span>움직이는 애니메이션</span></button></div></div>
- <footer>maxVFX Glue Studio v1.6.0 · 로컬 처리 · 이미지 서버 전송 없음 · Chrome / Edge 권장</footer>
+ <footer>maxVFX Glue Studio v1.7.0 · 로컬 처리 · 이미지 서버 전송 없음 · Chrome / Edge 권장</footer>
  </main>
 </div></div>
 <input id="fileInput" type="file" accept="image/*,.bmp" multiple hidden><input id="sheetInput" type="file" accept="image/*,.bmp" hidden>
@@ -482,7 +482,9 @@ async function runExport(type){if(!checkNotEmpty()||state.busy)return;stopPlay()
        let rgba=buildFrame(state.frames[i],c),source=canvasWithRGBA(rgba,c.tileW,c.tileH);let dest=makeCanvas(c.gifW,c.gifH),ctx=dest.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingQuality='high';ctx.drawImage(source,0,0,c.gifW,c.gifH);arr.push(ctx.getImageData(0,0,c.gifW,c.gifH).data);
        if(i%8===0){$('busyDetail').textContent=`GIF 프레임 ${i+1} / ${count}`;await sleep();}
      }
-     const bg=hexRGB(c.gifBg);blob=GlueGIF.encode(arr,c.gifW,c.gifH,{fps:c.fps,delaysMs:window.GlueV13?.frameDelays(state.frames,c.fps),threshold:c.gifThreshold,transparent:c.gifTransparent,dither:c.gifDither,bg},(n,total)=>{if(n%8===0)$('busyDetail').textContent=`GIF 압축 ${n} / ${total}`;});
+     const bg=hexRGB(c.gifBg);const gifOpts={fps:c.fps,delaysMs:window.GlueV13?.frameDelays(state.frames,c.fps),threshold:c.gifThreshold,transparent:c.gifTransparent,dither:c.gifDither,bg};
+     const onProgress=(n,total)=>{if(n%4===0||n===total)$('busyDetail').textContent=`GIF 압축 ${n} / ${total}`;};
+     blob=window.GlueV17?.encodeGif?await window.GlueV17.encodeGif(arr,c.gifW,c.gifH,gifOpts,onProgress):GlueGIF.encode(arr,c.gifW,c.gifH,gifOpts,onProgress);
      name=`${base}_${c.gifW}x${c.gifH}_${c.fps}fps.gif`;
    }else{
      const raw=sheetRaw(c);$('busyDetail').textContent=`${raw.width} × ${raw.height} · ${state.frames.length}프레임`;await sleep();
@@ -497,9 +499,17 @@ async function runExport(type){if(!checkNotEmpty()||state.busy)return;stopPlay()
  }catch(e){console.error(e);toast(`익스포트 실패: ${e.message}`,true);}finally{unbusy();}
 }
 function bind(){
- $('btnImport').addEventListener('click',()=>$('fileInput').click());$('btnEmptyImport').addEventListener('click',()=>$('fileInput').click());
- $('fileInput').addEventListener('change',e=>{addFiles(e.target.files);e.target.value='';});
- $('btnImportSheet').addEventListener('click',()=>$('sheetInput').click());
+ // File input is opened synchronously from the user gesture. Also provide a native label in HTML as fallback.
+ function chooseFile(id){const picker=$(id);if(!picker){toast('파일 선택 입력을 찾지 못했습니다. 페이지를 새로고침하세요.',true);return;}
+   try{if(typeof picker.showPicker==='function')picker.showPicker();else picker.click();}
+   catch(err){console.warn('[Glue Studio] showPicker fallback',err);try{picker.click()}catch(e){toast('파일 선택창을 열 수 없습니다. 직접 선택하기 버튼 또는 드래그 앤 드롭을 사용하세요.',true);}}}
+ $('btnImport').addEventListener('click',()=>chooseFile('fileInput'));
+ $('btnEmptyImport').addEventListener('click',()=>chooseFile('fileInput'));
+ $('fileInput').addEventListener('change',e=>{const picker=e.currentTarget,files=Array.from(picker.files||[]);picker.value='';if(!files.length)return;
+   const status=$('fileImportStatus');if(status)status.textContent=`선택한 ${files.length}개 파일을 불러오고 있습니다…`;
+   Promise.resolve().then(()=>addFiles(files)).then(()=>{if(status)status.textContent=`가져오기 완료 · 현재 ${state.frames.length}프레임`;}).catch(err=>{console.error('[Glue Studio] import failure',err);if(status)status.textContent='불러오기 실패: '+err.message;toast('불러오기 실패: '+err.message,true);});
+ });
+ $('btnImportSheet').addEventListener('click',()=>chooseFile('sheetInput'));
  $('sheetInput').addEventListener('change',e=>{state.sliceFile=e.target.files?.[0];e.target.value='';if(state.sliceFile)$('sliceDialog').showModal();});
  $('sliceDialog').addEventListener('close',()=>{if($('sliceDialog').returnValue==='apply')sliceSheet(state.sliceFile);});
  $('btnHelp').addEventListener('click',()=>$('helpDialog').showModal());
@@ -1162,7 +1172,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 window.GlueV16WorkerCode="const window=self;\n/* maxVFX Glue Studio · Lossless PNG and uncompressed 32-bit TGA · no dependencies */\n(function(global){\n'use strict';\nconst u16=(n)=>[n&255,(n>>>8)&255];\nfunction u32be(n){return [(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255]}\nfunction crcTable(){let t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xedb88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;}\nconst table=crcTable();\nfunction crc32(bytes){let c=0xffffffff;for(let i=0;i<bytes.length;i++)c=table[(c^bytes[i])&255]^(c>>>8);return(c^0xffffffff)>>>0;}\nfunction chunk(name,data){let type=new Uint8Array([...name].map(c=>c.charCodeAt(0)));let arr=new Uint8Array(data.length+12);arr.set(u32be(data.length),0);arr.set(type,4);arr.set(data,8);arr.set(u32be(crc32(arr.subarray(4,8+data.length))),8+data.length);return arr;}\nfunction combine(parts){let len=0;for(const p of parts)len+=p.length;let out=new Uint8Array(len),i=0;for(const p of parts){out.set(p,i);i+=p.length;}return out;}\nasync function encodePNG(rgba,w,h){\n  if(rgba.length!==w*h*4)throw Error('PNG RGBA 크기가 올바르지 않습니다.');\n  const scan=new Uint8Array(h*(w*4+1));const row=w*4;\n  for(let y=0;y<h;y++)scan.set(rgba.subarray(y*row,(y+1)*row),y*(row+1)+1);\n  let compressed;\n  if(typeof CompressionStream!=='undefined'){\n    const stream=new Blob([scan]).stream().pipeThrough(new CompressionStream('deflate'));\n    compressed=new Uint8Array(await new Response(stream).arrayBuffer());\n  }else{\n    // For browsers without CompressionStream, produce zlib stream using deflate stored blocks.\n    const parts=[Uint8Array.from([0x78,0x01])];let a=1,b=0;\n    for(let start=0;start<scan.length;start+=65535){let size=Math.min(65535,scan.length-start);const tail=start+size>=scan.length?1:0;let block=new Uint8Array(5+size);block.set([tail,size&255,size>>>8,(~size)&255,((~size)>>>8)&255]);block.set(scan.subarray(start,start+size),5);parts.push(block);}\n    for(let i=0;i<scan.length;i++){a=(a+scan[i])%65521;b=(b+a)%65521;}parts.push(Uint8Array.from(u32be(((b<<16)|a)>>>0)));compressed=combine(parts);\n  }\n  const ihdr=Uint8Array.from([...u32be(w),...u32be(h),8,6,0,0,0]);\n  return new Blob([Uint8Array.from([137,80,78,71,13,10,26,10]),chunk('IHDR',ihdr),chunk('IDAT',compressed),chunk('IEND',new Uint8Array())],{type:'image/png'});\n}\nfunction encodeTGA(rgba,w,h){\n if(w>65535||h>65535)throw Error('TGA 최대 해상도는 65535입니다.');\n const out=new Uint8Array(18+rgba.length);out[2]=2;out.set(u16(w),12);out.set(u16(h),14);out[16]=32;out[17]=0x28; // top-origin, eight alpha bits\n for(let i=0;i<rgba.length;i+=4){out[18+i]=rgba[i+2];out[19+i]=rgba[i+1];out[20+i]=rgba[i];out[21+i]=rgba[i+3];}\n return new Blob([out],{type:'image/x-tga'});\n}\nglobal.GlueExport={encodePNG,encodeTGA};\n})(window);\n\nself.onmessage=async e=>{const {id,format,width,height,rgba}=e.data||{};try{if(!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1||width>8192||height>8192||width*height>45000000)throw Error('잘못된 텍스처 크기');if(!rgba||rgba.byteLength!==width*height*4)throw Error('RGBA 버퍼 크기 불일치');const data=new Uint8ClampedArray(rgba);const blob=format==='png'?await GlueExport.encodePNG(data,width,height):format==='tga'?GlueExport.encodeTGA(data,width,height):null;if(!blob)throw Error('미지원 출력 포맷');const output=await blob.arrayBuffer();postMessage({id,ok:true,buffer:output},[output]);}catch(error){postMessage({id,ok:false,error:String(error.message||error)})}};\n";
 
 </script><script>
-/* maxVFX Glue Studio v1.6.0 — opt-in IndexedDB recovery and transferable worker export.
+/* maxVFX Glue Studio v1.7.0 — opt-in IndexedDB recovery and transferable worker export.
  * All recovery data stays in browser origin storage. Nothing is sent to any server.
  */
 (async()=>{'use strict';
@@ -1262,6 +1272,50 @@ function mount(){
  $('helpDialog').querySelector('ol')?.insertAdjacentHTML('beforeend','<li>v1.6 자동 복구는 선택 활성화 방식이며, 이미지 원본이 브라우저에 저장됩니다. 대용량 프로젝트는 수동 .glueproj 저장을 이용하세요.</li>');
 }
 window.GlueV16={encodeSheet,snapshot,readSlot,deleteSlot,serialize,fingerprint,dbAction,limits:{MAX_FRAMES,MAX_PIXELS,MAX_BYTES}};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+})();
+
+</script>
+<script>
+/* Offline GIF encoder Web Worker, derived from gif-codec.js */
+window.GlueV17WorkerCode="const window=self;\n/* maxVFX Glue Studio GIF89a encoder; global adaptive palette + LZW; no dependencies */\n(function(global){\n'use strict';\nconst clamp=(n,a,b)=>Math.min(b,Math.max(a,n));\nconst bayer=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];\nfunction makePalette(frames,threshold,transparent,bg){\n const hist=new Map();\n for(const frame of frames){const stride=Math.max(1,Math.floor(frame.length/4/32000));\n   for(let p=0;p<frame.length;p+=4*stride){const alpha=frame[p+3];if(transparent&&alpha<threshold)continue;\n     let r=frame[p],g=frame[p+1],b=frame[p+2];if(!transparent&&alpha<255){let a=alpha/255;r=Math.round(r*a+bg[0]*(1-a));g=Math.round(g*a+bg[1]*(1-a));b=Math.round(b*a+bg[2]*(1-a));}\n     const key=((r>>3)<<10)|((g>>3)<<5)|(b>>3);let v=hist.get(key);if(!v)hist.set(key,v=[0,0,0,0]);v[0]++;v[1]+=r;v[2]+=g;v[3]+=b;\n   }\n }\n const values=Array.from(hist.values()).map(v=>({n:v[0],r:v[1]/v[0],g:v[2]/v[0],b:v[3]/v[0]}));\n if(!values.length)values.push({n:1,r:0,g:0,b:0});\n const limit=transparent?255:256;let boxes=[values];\n while(boxes.length<limit){let bi=-1,bscore=0,axis=0;\n   for(let i=0;i<boxes.length;i++){let box=boxes[i];if(box.length<2)continue;let rs=[255,0],gs=[255,0],bs=[255,0],total=0;\n     for(let c of box){rs[0]=Math.min(rs[0],c.r);rs[1]=Math.max(rs[1],c.r);gs[0]=Math.min(gs[0],c.g);gs[1]=Math.max(gs[1],c.g);bs[0]=Math.min(bs[0],c.b);bs[1]=Math.max(bs[1],c.b);total+=c.n;}\n     const spans=[rs[1]-rs[0],gs[1]-gs[0],bs[1]-bs[0]];const a=spans.indexOf(Math.max(...spans));const score=spans[a]*Math.log2(total+1);\n     if(score>bscore){bi=i;bscore=score;axis=a;}\n   }\n   if(bi<0)break;\n   const box=boxes[bi];const key=['r','g','b'][axis];box.sort((a,b)=>a[key]-b[key]);let total=0;for(let c of box)total+=c.n;let half=0,k=0;\n   for(;k<box.length-1;k++){half+=box[k].n;if(half>=total/2){k++;break;}}\n   k=clamp(k,1,box.length-1);boxes.splice(bi,1,box.slice(0,k),box.slice(k));\n }\n const palette=new Uint8Array(768),start=transparent?1:0;\n for(let n=0;n<boxes.length;n++){let cnt=0,r=0,g=0,b=0;for(let c of boxes[n]){cnt+=c.n;r+=c.r*c.n;g+=c.g*c.n;b+=c.b*c.n;}\n   palette[(n+start)*3]=Math.round(r/cnt);palette[(n+start)*3+1]=Math.round(g/cnt);palette[(n+start)*3+2]=Math.round(b/cnt);\n }\n return {palette,count:boxes.length+start,start};\n}\nfunction quantize(frame,w,h,options,pal,cache){\n const indices=new Uint8Array(w*h),colors=pal.palette;let pos=0;\n for(let y=0;y<h;y++)for(let x=0;x<w;x++,pos++){\n   const i=pos*4,a=frame[i+3];if(options.transparent&&a<options.threshold){indices[pos]=0;continue;}\n   let r=frame[i],g=frame[i+1],b=frame[i+2];\n   if(!options.transparent&&a<255){let s=a/255;r=r*s+options.bg[0]*(1-s);g=g*s+options.bg[1]*(1-s);b=b*s+options.bg[2]*(1-s);}\n   if(options.dither){const d=(bayer[(y&3)*4+(x&3)]-7.5)*2;r=clamp(r+d,0,255);g=clamp(g+d,0,255);b=clamp(b+d,0,255);}\n   let key=((r>>3)<<10)|((g>>3)<<5)|(b>>3),found=cache[key];\n   if(found===0){let best=pal.start,dist=1e20;for(let c=pal.start;c<pal.count;c++){\n     let dr=r-colors[c*3],dg=g-colors[c*3+1],db=b-colors[c*3+2];let val=dr*dr*0.3+dg*dg*0.59+db*db*0.11;if(val<dist){dist=val;best=c;}\n   }found=best+1;cache[key]=found;}\n   indices[pos]=found-1;\n }\n return indices;\n}\nfunction lzw(indices){\n const clear=256,end=257;let next=258,bits=9,dict=new Map(),output=[],buf=0,bitPos=0;\n const emit=(code)=>{buf|=code<<bitPos;bitPos+=bits;while(bitPos>=8){output.push(buf&255);buf>>>=8;bitPos-=8;}};\n const reset=()=>{dict=new Map();next=258;bits=9;};\n emit(clear);let prefix=indices[0]??0;\n for(let i=1;i<indices.length;i++){\n   const k=indices[i],key=prefix*256+k;let match=dict.get(key);\n   if(match!==undefined){prefix=match;continue;}\n   emit(prefix);\n   if(next<4096){dict.set(key,next++);if(next===(1<<bits)+1&&bits<12)bits++;}\n   else{emit(clear);reset();}\n   prefix=k;\n }\n emit(prefix);emit(end);if(bitPos>0)output.push(buf&255);\n return Uint8Array.from(output);\n}\nfunction encode(frames,w,h,config,onProgress){\n if(!frames.length)throw Error('GIF 프레임이 없습니다.');\n if(w>65535||h>65535)throw Error('GIF 크기 제한 초과');\n const fps=clamp(Number(config.fps)||12,1,50),defaultDelay=clamp(Math.round(100/fps),2,65535);\n const options={transparent:!!config.transparent,threshold:clamp(+config.threshold||0,0,255),dither:!!config.dither,bg:config.bg||[0,0,0]};\n const pal=makePalette(frames,options.threshold,options.transparent,options.bg);\n const header=new Uint8Array(13+768);header.set([71,73,70,56,57,97,w&255,(w>>8)&255,h&255,(h>>8)&255,0xf7,0,0]);header.set(pal.palette,13);\n const parts=[header,Uint8Array.from([0x21,0xff,0x0b,78,69,84,83,67,65,80,69,50,46,48,0x03,0x01,0x00,0x00,0x00])];\n let cache=new Uint16Array(32768);\n for(let n=0;n<frames.length;n++){\n   const idx=quantize(frames[n],w,h,options,pal,cache);const compressed=lzw(idx);\n   const requested=Array.isArray(config.delaysMs)?Number(config.delaysMs[n]):NaN;\n   const delay=Number.isFinite(requested)?clamp(Math.round(requested/10),2,65535):defaultDelay;\n   const gce=Uint8Array.from([0x21,0xf9,4,options.transparent?0x09:0x08,delay&255,(delay>>8)&255,0,0]);\n   const descriptor=Uint8Array.from([0x2c,0,0,0,0,w&255,(w>>8)&255,h&255,(h>>8)&255,0]);\n   let blocks=[gce,descriptor,Uint8Array.from([8])];\n   for(let i=0;i<compressed.length;i+=255){const part=compressed.subarray(i,i+255);blocks.push(Uint8Array.from([part.length]),part);}\n   blocks.push(Uint8Array.from([0]));parts.push(...blocks);\n   if(onProgress)onProgress(n+1,frames.length);\n }\n parts.push(Uint8Array.from([0x3b]));return new Blob(parts,{type:'image/gif'});\n}\nglobal.GlueGIF={encode,lzw,makePalette};\n})(window);\n\nself.onmessage=async(event)=>{const message=event.data||{};const{id,width,height,frames,opts}=message;\n try{if(!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1||!Array.isArray(frames)||!frames.length||frames.length>512)throw Error('GIF input invalid');\n let pixels=0;const arrays=frames.map(buf=>{if(!(buf instanceof ArrayBuffer)||buf.byteLength!==width*height*4)throw Error('Invalid GIF frame buffer');pixels+=width*height;return new Uint8ClampedArray(buf)});\n if(pixels>14000000)throw Error('GIF export pixel limit exceeded');\n const gif=GlueGIF.encode(arrays,width,height,opts,(n,total)=>{if(n%4===0||n===total)self.postMessage({id,progress:n,total})});\n const data=await gif.arrayBuffer();self.postMessage({id,done:true,data},[data]);\n }catch(error){self.postMessage({id,error:String(error?.message||error)})}\n};\n";
+
+</script>
+<script>
+/* maxVFX Glue Studio v1.7.0 — resilient file import and GIF encoding worker. */
+(()=>{'use strict';
+const $=id=>document.getElementById(id);
+let lastMode='대기',successes=0,fallbacks=0;
+function status(message){lastMode=message;const item=$('v17WorkerStatus');if(item)item.textContent=message;}
+async function encodeGif(frames,width,height,options,onProgress){
+ if(typeof Worker==='undefined'||!window.GlueV17WorkerCode||typeof URL.createObjectURL!=='function'){
+  fallbacks++;status('GIF 인코딩: 메인 스레드(브라우저 Worker 미지원)');return GlueGIF.encode(frames,width,height,options,onProgress);
+ }
+ let worker=null,url=null,timer=null;const token=Date.now()+Math.random();
+ try{
+  url=URL.createObjectURL(new Blob([window.GlueV17WorkerCode],{type:'text/javascript'}));worker=new Worker(url);
+  // Send copies so the original frames remain valid for the synchronous fallback.
+  const buffers=frames.map(f=>f.buffer.slice(f.byteOffset,f.byteOffset+f.byteLength));
+  const output=await new Promise((resolve,reject)=>{
+   let settled=false;const finish=(error,value)=>{if(settled)return;settled=true;clearTimeout(timer);error?reject(error):resolve(value)};
+   timer=setTimeout(()=>finish(Error('GIF Worker 응답 시간 초과')),120000);
+   worker.onmessage=e=>{const m=e.data||{};if(m.id!==token)return;
+     if(m.progress){onProgress?.(m.progress,m.total);return;}
+     if(m.error){finish(Error(m.error));return;}
+     if(m.done&&m.data instanceof ArrayBuffer)finish(null,new Blob([m.data],{type:'image/gif'}));
+   };
+   worker.onerror=e=>finish(Error(e.message||'GIF Worker 오류'));
+   worker.postMessage({id:token,width,height,frames:buffers,opts:options},buffers);
+  });
+  successes++;status('GIF 인코딩: Web Worker 처리 완료');return output;
+ }catch(error){console.warn('[Glue Studio v1.7] GIF Worker fallback:',error);fallbacks++;status('GIF Worker 실패, 일반 방식으로 자동 전환');return GlueGIF.encode(frames,width,height,options,onProgress);}
+ finally{if(timer)clearTimeout(timer);if(worker)worker.terminate();if(url)URL.revokeObjectURL(url)}
+}
+function mount(){const target=$('exportGif');if(!target)return;
+ const label=document.createElement('p');label.id='v17WorkerStatus';label.className='small-muted';label.style.cssText='margin:9px 0 0;flex-basis:100%';label.textContent='GIF 출력: 백그라운드 인코딩 준비';target.closest('.export-panel')?.appendChild(label);
+ const help=$('helpDialog')?.querySelector('ol');help?.insertAdjacentHTML('beforeend','<li>파일 선택이 막힐 때는 첫 패널의 직접 선택하기를 누르거나 이미지를 화면에 드래그하세요. GIF 인코딩은 가능한 경우 Worker에서 실행합니다.</li>');
+}
+window.GlueV17={encodeGif,getStats:()=>({lastMode,successes,fallbacks})};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 })();
 

@@ -174,7 +174,9 @@ async function runExport(type){if(!checkNotEmpty()||state.busy)return;stopPlay()
        let rgba=buildFrame(state.frames[i],c),source=canvasWithRGBA(rgba,c.tileW,c.tileH);let dest=makeCanvas(c.gifW,c.gifH),ctx=dest.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingQuality='high';ctx.drawImage(source,0,0,c.gifW,c.gifH);arr.push(ctx.getImageData(0,0,c.gifW,c.gifH).data);
        if(i%8===0){$('busyDetail').textContent=`GIF 프레임 ${i+1} / ${count}`;await sleep();}
      }
-     const bg=hexRGB(c.gifBg);blob=GlueGIF.encode(arr,c.gifW,c.gifH,{fps:c.fps,delaysMs:window.GlueV13?.frameDelays(state.frames,c.fps),threshold:c.gifThreshold,transparent:c.gifTransparent,dither:c.gifDither,bg},(n,total)=>{if(n%8===0)$('busyDetail').textContent=`GIF 압축 ${n} / ${total}`;});
+     const bg=hexRGB(c.gifBg);const gifOpts={fps:c.fps,delaysMs:window.GlueV13?.frameDelays(state.frames,c.fps),threshold:c.gifThreshold,transparent:c.gifTransparent,dither:c.gifDither,bg};
+     const onProgress=(n,total)=>{if(n%4===0||n===total)$('busyDetail').textContent=`GIF 압축 ${n} / ${total}`;};
+     blob=window.GlueV17?.encodeGif?await window.GlueV17.encodeGif(arr,c.gifW,c.gifH,gifOpts,onProgress):GlueGIF.encode(arr,c.gifW,c.gifH,gifOpts,onProgress);
      name=`${base}_${c.gifW}x${c.gifH}_${c.fps}fps.gif`;
    }else{
      const raw=sheetRaw(c);$('busyDetail').textContent=`${raw.width} × ${raw.height} · ${state.frames.length}프레임`;await sleep();
@@ -185,9 +187,17 @@ async function runExport(type){if(!checkNotEmpty()||state.busy)return;stopPlay()
  }catch(e){console.error(e);toast(`익스포트 실패: ${e.message}`,true);}finally{unbusy();}
 }
 function bind(){
- $('btnImport').addEventListener('click',()=>$('fileInput').click());$('btnEmptyImport').addEventListener('click',()=>$('fileInput').click());
- $('fileInput').addEventListener('change',e=>{addFiles(e.target.files);e.target.value='';});
- $('btnImportSheet').addEventListener('click',()=>$('sheetInput').click());
+ // File input is opened synchronously from the user gesture. Also provide a native label in HTML as fallback.
+ function chooseFile(id){const picker=$(id);if(!picker){toast('파일 선택 입력을 찾지 못했습니다. 페이지를 새로고침하세요.',true);return;}
+   try{if(typeof picker.showPicker==='function')picker.showPicker();else picker.click();}
+   catch(err){console.warn('[Glue Studio] showPicker fallback',err);try{picker.click()}catch(e){toast('파일 선택창을 열 수 없습니다. 직접 선택하기 버튼 또는 드래그 앤 드롭을 사용하세요.',true);}}}
+ $('btnImport').addEventListener('click',()=>chooseFile('fileInput'));
+ $('btnEmptyImport').addEventListener('click',()=>chooseFile('fileInput'));
+ $('fileInput').addEventListener('change',e=>{const picker=e.currentTarget,files=Array.from(picker.files||[]);picker.value='';if(!files.length)return;
+   const status=$('fileImportStatus');if(status)status.textContent=`선택한 ${files.length}개 파일을 불러오고 있습니다…`;
+   Promise.resolve().then(()=>addFiles(files)).then(()=>{if(status)status.textContent=`가져오기 완료 · 현재 ${state.frames.length}프레임`;}).catch(err=>{console.error('[Glue Studio] import failure',err);if(status)status.textContent='불러오기 실패: '+err.message;toast('불러오기 실패: '+err.message,true);});
+ });
+ $('btnImportSheet').addEventListener('click',()=>chooseFile('sheetInput'));
  $('sheetInput').addEventListener('change',e=>{state.sliceFile=e.target.files?.[0];e.target.value='';if(state.sliceFile)$('sliceDialog').showModal();});
  $('sliceDialog').addEventListener('close',()=>{if($('sliceDialog').returnValue==='apply')sliceSheet(state.sliceFile);});
  $('btnHelp').addEventListener('click',()=>$('helpDialog').showModal());

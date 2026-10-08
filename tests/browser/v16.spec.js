@@ -22,3 +22,22 @@ test('opt-in IndexedDB save, page reload, manual restore, clear',async({page})=>
  await page.waitForFunction(()=>window.__GlueTest.state.frames.length===6);
  await page.locator('#v16Delete').click();await expect(page.locator('#v16Restore')).toBeDisabled();await expect(page.locator('#v16Enabled')).not.toBeChecked();
 });
+
+
+test('file picker opens and PNG plus GIF import, GIF worker export',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('/index.html');
+ await page.waitForFunction(()=>!!(window.GlueV17&&window.GlueV16&&window.GlueV14));
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==','base64');
+ const [picker]=await Promise.all([page.waitForEvent('filechooser'),page.locator('#btnImport').click()]);
+ await picker.setFiles({name:'sample.png',mimeType:'image/png',buffer:png});
+ await page.waitForFunction(()=>window.__GlueTest.state.frames.length===1);
+ await expect(page.locator('#fileImportStatus')).toContainText('1프레임');
+ const [chooser]=await Promise.all([page.waitForEvent('filechooser'),page.locator('#v14GIFImport').click()]);
+ const array=await page.evaluate(async()=>{const w=2,h=2,frames=Array.from({length:2},(_,i)=>{const a=new Uint8ClampedArray(w*h*4);for(let k=0;k<a.length;k+=4){a[k]=i*200;a[k+3]=255;}return a;});const blob=GlueGIF.encode(frames,w,h,{fps:12,threshold:96,transparent:false,dither:false,bg:[0,0,0]});return Array.from(new Uint8Array(await blob.arrayBuffer()))});
+ await chooser.setFiles({name:'sample.gif',mimeType:'image/gif',buffer:Buffer.from(array)});
+ await page.waitForFunction(()=>window.__GlueTest.state.frames.length===3);
+ const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#exportGif').click()]);
+ expect(download.suggestedFilename()).toMatch(/\.gif$/);
+ expect(errors).toEqual([]);
+});
