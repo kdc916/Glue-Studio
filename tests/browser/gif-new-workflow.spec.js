@@ -10,11 +10,11 @@ async function makeGif(page){
  return {name:'generated.gif',mimeType:'image/gif',buffer:Buffer.from(data)};
 }
 const input='input[accept=".gif,image/gif"]';
-async function ready(page){await page.goto('/index.html');await page.waitForFunction(()=>!!(window.GlueV14&&window.GlueV15&&document.getElementById('gifImportMode')));}
+async function ready(page){await page.goto('/index.html');await page.waitForFunction(()=>!!(window.GlueV14&&window.GlueV15&&document.getElementById('importMode')));}
 async function checkCount(page,n){await page.waitForFunction(n=>window.__GlueTest.state.frames.length===n&&!window.__GlueTest.state.busy,n);}
 test('New GIF replaces current sprite sequence and resets per-project settings',async({page})=>{
  const pageErrors=[];page.on('pageerror',err=>pageErrors.push(err.message));
- await ready(page);await expect(page.locator('#gifImportMode')).toHaveValue('replace');
+ await ready(page);await expect(page.locator('#importMode')).toHaveValue('replace');
  await page.locator('#fileInput').setInputFiles([png,png]);await checkCount(page,2);
  await page.locator('#alphaMode').selectOption('black');await page.locator('#trim').check();await page.locator('#gap').fill('12');
  await page.locator('#pivotX').fill('0.2');await page.locator('#pivotX').dispatchEvent('input');
@@ -29,9 +29,9 @@ test('New GIF replaces current sprite sequence and resets per-project settings',
 test('Append is opt-in; cancellation or invalid GIF preserves current frames',async({page})=>{
  await ready(page);await page.locator(input).setInputFiles(await makeGif(page));await checkCount(page,6);
  const previous=await page.evaluate(()=>__GlueTest.state.frames.map(f=>f.id));
- await page.locator('#gifImportMode').selectOption('append');await page.locator(input).setInputFiles(await makeGif(page));await checkCount(page,12);
+ await page.locator('#importMode').selectOption('append');await page.locator(input).setInputFiles(await makeGif(page));await checkCount(page,12);
  const ids=await page.evaluate(()=>__GlueTest.state.frames.map(f=>f.id));expect(ids.slice(0,6)).toEqual(previous);
- await page.locator('#gifImportMode').selectOption('replace');
+ await page.locator('#importMode').selectOption('replace');
  page.once('dialog',d=>d.dismiss());await page.locator(input).setInputFiles(await makeGif(page));
  expect(await page.evaluate(()=>__GlueTest.state.frames.map(f=>f.id))).toEqual(ids);
  page.once('dialog',d=>d.accept());await page.locator(input).setInputFiles({name:'broken.gif',mimeType:'image/gif',buffer:Buffer.from('GIF89aBROKEN')});
