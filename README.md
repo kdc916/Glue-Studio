@@ -1,16 +1,16 @@
-# maxVFX Glue Studio v1.3.0
+# maxVFX Glue Studio v1.4.0
 
 **GlueIT 방식의 스프라이트 시트 편집기를 현대적인 로컬 웹 앱으로 재구현한 독립 프로젝트**입니다. 설치, 로그인, 서버 통신 없이 브라우저에서 이미지 시퀀스를 시트로 묶거나 GIF 애니메이션으로 저장할 수 있습니다.
 
 ## 바로 실행
 
 - **가장 쉬운 방법:** `maxVFX_Glue_Studio_Standalone.html` 더블클릭 → Chrome/Edge로 열기.
-- **웹 호스팅 / 개발용:** `index.html`, `styles.css`, `app.js`, `gif-codec.js`, `export-codec.js`, `vfx-addon.js`, `v12-addon.js`, `v13-addon.js`를 같은 폴더에 배치하여 `index.html` 열기. GitHub Pages 또는 일반 정적 호스팅 가능.
+- **웹 호스팅 / 개발용:** `index.html`, `styles.css`, `app.js`, `gif-codec.js`, `export-codec.js`, `vfx-addon.js`, `v12-addon.js`, `v13-addon.js`, `gif-decoder.js`, `zip-codec.js`, `v14-addon.js`를 같은 폴더에 배치하여 `index.html` 열기. GitHub Pages 또는 일반 정적 호스팅 가능.
 - 외부 라이브러리와 CDN이 없으며 모든 소스 이미지는 로컬 브라우저 메모리에서 처리됩니다.
 
 ## 기본 제작 순서
 
-1. `＋ 시퀀스 추가`: PNG/JPG/WEBP/BMP를 여러 장 선택합니다. 파일명 기준 자연 정렬(`1`, `2`, `10`) 후 추가됩니다. GIF 파일을 입력하면 첫 프레임만 사용합니다.
+1. `＋ 시퀀스 추가`: PNG/JPG/WEBP/BMP를 여러 장 선택합니다. 파일명 기준 자연 정렬(`1`, `2`, `10`) 후 추가됩니다. GIF 입력 시 모든 프레임과 프레임별 지속시간을 가져옵니다.
 2. 이미 묶인 시트라면 `▦ 시트 분할`에서 **열/행**을 입력해 프레임으로 분할합니다. 시트 너비/높이가 그리드로 정확히 나뉘어야 합니다.
 3. 프레임 너비/높이, 열 수, Gap, Padding, `2의 거듭제곱` 등을 설정합니다. 처음 불러온 이미지의 해상도가 기본값(256×256)을 자동 대체합니다.
 4. 배경 제거가 필요하면 `알파 처리 · Alpha Lab`에서 모드를 선택합니다.
@@ -43,7 +43,7 @@
 - 프레임 수 최대 **512장**. GIF 작업량 최대 **1,400만 픽셀(프레임 너비 × 높이 × 프레임 수)**.
 - GIF는 **알파 1비트(투명/불투명)**만 지원. `투명 기준`으로 경계 선택, `GIF 투명 배경 사용`을 끄면 배경색에 합성합니다.
 - 웹 브라우저 메모리와 기기 성능에 따라 실무 처리 가능 해상도는 달라집니다.
-- GIF를 입력으로 선택하는 경우 **첫 프레임만** 불러옵니다. 다중 프레임 GIF 분해는 후속 개발 대상으로 남겨두었습니다.
+- GIF를 입력하면 **전체 프레임**을 불러옵니다.
 - `Trim`은 프레임별 알파를 기준으로 테두리를 잘라 스프라이트 영역을 셀에 맞게 배치합니다. 정렬 중심이 필요한 시퀀스에서는 **Trim OFF** 권장.
 - 브라우저 이미지 로더가 지원하는 형식만 입력할 수 있습니다. PSD, EXR, HEIC는 현재 지원하지 않습니다.
 
@@ -100,3 +100,17 @@ engine/Unreal5_8/GlueStudio_Flipbook.ush — Unreal Material UV Helper
 - Atlas JSON / Unreal CSV: new durationMs, variableTiming, alignment and alpha matte fields; existing UV and pivot unchanged.
 - Source file: v13-addon.js; GitHub Pages uses an offline gzip bootstrapper requiring browser DecompressionStream. Readable source shipped in ZIP.
 - QA: Node unit verification passed. Chrome automated navigation blocked by administrator policy; Unity/UE runtime tests not executed.
+
+
+## v1.4.0 — GIF → 스프라이트 시트 / 포터블 프로젝트
+
+**GIF → 시트**를 눌러 애니메이션 GIF를 넣으면 전체 프레임과 프레임별 재생시간이 자동 추출됩니다. 합성된 GIF 프레임(Disposal 1/2/3, 로컬 팔레트, 인터레이스 포함)을 기존 Alpha Lab · 정렬 · Pivot · 시트 레이아웃에서 편집합니다. **PNG 시트** 또는 **TGA 시트**를 누르면 GIF→Flipbook 변환이 완료됩니다. 처음 가져올 때 프레임 크기/열 수 자동 설정을 지원하며 기존 시퀀스에 이어 붙이기도 가능합니다.
+
+- **PNG 시퀀스 ZIP**: 현재 처리 결과를 frame_0000.png 순서로 출력하며 atlas.json 포함
+- **프로젝트 저장**: `.glueproj` (ZIP32 STORE) 프로젝트에 원본 프레임, 프레임 순서/이름/지속시간, Pivot, 알파 설정, 출력 해상도/그리드, 미리보기 배속 포함
+- **프로젝트 불러오기**: 파일을 드래그하거나 불러오기 버튼 선택. ZIP CRC, 스키마, 프레임/크기 검증. 프로젝트를 교체하기 전에 확인
+- **완전 오프라인**: 외부 라이브러리 없이 `gif-decoder.js`, `zip-codec.js`, `v14-addon.js`를 로컬 사용. 단독 HTML도 동일 구현 포함
+
+**주의:** GIF의 색상 제한(256색/1비트 투명도)은 PNG 변환 후에도 복구되지 않습니다. GIF 최대 80MB/512프레임/총 3,200만 픽셀. 프로젝트 파일 최대 300MB. 프로젝트 PNG 재저장 시 완전 투명 픽셀의 숨은 RGB는 브라우저 처리에 따라 달라질 수 있습니다. 외부 DEFLATE ZIP을 `.glueproj`로 이름만 바꿔 불러오는 방식은 지원하지 않습니다.
+
+**검증:** Pillow 기준 GIF disposal 1/2/3/불투명 프레임 RGBA 비교, ZIP roundtrip/CRC/경로 검증, v1.3 회귀 테스트 통과. 자동 브라우저 UI 및 실제 Unity/Unreal 런타임 테스트는 실행 환경 제한으로 미완료.

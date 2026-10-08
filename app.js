@@ -130,7 +130,7 @@ function renderFrames(){const list=$('frames');list.replaceChildren();if(!state.
 async function loadFile(file){const bitmap=await createImageBitmap(file);if(bitmap.width>10000||bitmap.height>10000){bitmap.close();throw Error('입력 이미지가 10,000px을 초과합니다.');}
  let thumb=makeCanvas(100,96),ctx=thumb.getContext('2d');let s=Math.min(100/bitmap.width,96/bitmap.height);ctx.drawImage(bitmap,(100-bitmap.width*s)/2,(96-bitmap.height*s)/2,bitmap.width*s,bitmap.height*s);
  return{id:state.nextId++,name:file.name,bitmap,thumb:thumb.toDataURL('image/png')};}
-async function addFiles(files){const images=Array.from(files).filter(f=>f.type.startsWith('image/')||/\.(png|jpe?g|webp|bmp|gif)$/i.test(f.name));if(!images.length){toast('지원하는 이미지 파일이 없습니다.',true);return;}
+async function addFiles(files){if(window.GlueV14?.importFiles && !window.GlueV14.passthrough)return window.GlueV14.importFiles(files);const images=Array.from(files).filter(f=>f.type.startsWith('image/')||/\.(png|jpe?g|webp|bmp|gif)$/i.test(f.name));if(!images.length){toast('지원하는 이미지 파일이 없습니다.',true);return;}
  if(state.frames.length+images.length>512){toast('한 번에 최대 512프레임까지 사용할 수 있습니다.',true);return;}
  if(state.busy)return;busy('이미지 가져오는 중',`${images.length}개 이미지 준비`);await sleep();let success=[],failure=[];
  for(const file of images.sort((a,b)=>numeric.compare(a.name,b.name))){try{success.push(await loadFile(file));}catch(e){failure.push(`${file.name}: ${e.message}`);}}
@@ -216,5 +216,7 @@ function bind(){
 }
 updateAlphaUI();bind();$('stage').classList.add('bg-checker');updateStats();
 // expose a small test API for local regression checks (does not send or store images).
-window.__GlueTest={alphaProcess,applyBleed,sheetRaw,readConf,state,dimensions,buildFrame,addFiles,sliceSheet};
+window.__GlueTest={alphaProcess,applyBleed,sheetRaw,readConf,state,dimensions,buildFrame,addFiles,sliceSheet,disposeAll,renderFrames,invalidate,toast,busy,unbusy,stopPlay,setView};
 })();
+
+</script><script>

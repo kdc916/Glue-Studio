@@ -12,14 +12,14 @@
 </head>
 <body>
 <div class="shell">
-<header class="topbar"><div class="brand"><div class="brand-mark">G<span>+</span></div><div><h1>maxVFX <em>Glue Studio</em></h1><div class="brand-sub">SPRITE SHEET · ALPHA LAB · GIF EXPORT</div></div></div>
+<header class="topbar"><div class="brand"><div class="brand-mark">G<span>+</span></div><div><h1>maxVFX <em>Glue Studio</em></h1><div class="brand-sub">SPRITE SHEET · ALPHA LAB · GIF EXPORT · ATLAS METADATA</div></div></div>
 <div class="top-actions"><span class="label-pill" id="onlineBadge">100% LOCAL · OFFLINE</span><button id="btnHelp" class="text-btn" title="사용 안내">도움말 <span>?</span></button></div></header>
 <div class="workspace">
 <aside class="sidebar" id="sidebar">
  <div class="side-head"><div><small>WORKFLOW</small><h2>제작 설정</h2></div><button class="small-btn" id="btnReset" title="설정을 기본값으로">설정 초기화</button></div>
  <section class="panel"><div class="section-title"><b class="step">01</b><h3>소스 이미지</h3></div>
  <div class="upload-choices"><button id="btnImport" class="primary">＋ 시퀀스 추가</button><button id="btnImportSheet" class="secondary">▦ 시트 분할</button></div>
- <p class="small-muted">PNG · JPG · WEBP · BMP · GIF(첫 프레임) · 드래그 앤 드롭</p>
+ <p class="small-muted">PNG · JPG · WEBP · BMP · GIF(전체 프레임) · 드래그 앤 드롭</p>
  <div class="mini-stats"><div><strong id="countStat">0</strong><span>프레임</span></div><div><strong id="sourceStat">–</strong><span>원본 해상도</span></div></div>
  </section>
  <section class="panel"><div class="section-title"><b class="step">02</b><h3>시트 레이아웃</h3></div>
@@ -53,7 +53,7 @@
  <div class="playbar"><div class="transport"><button id="btnPrev" title="이전 프레임">|◀</button><button id="btnPlay" class="play" title="재생/일시정지">▶</button><button id="btnNext" title="다음 프레임">▶|</button></div><div class="timeline"><input id="scrub" type="range" min="0" max="0" value="0"><div class="timeline-meta"><span id="playTime">FRAME 0 / 0</span><span id="sheetDimensions">–</span></div></div></div>
  <div class="frame-heading"><div><h3>프레임 시퀀스 <span id="frameCount">0</span></h3><p>드래그해서 순서를 바꾸거나, 클릭해서 프레임을 확인할 수 있습니다.</p></div><div class="frame-actions"><button id="btnSort" class="small-btn">이름순 정렬</button><button id="btnReverse" class="small-btn">순서 뒤집기</button><button id="btnClear" class="small-btn danger">전체 제거</button></div></div><div id="frames" class="frames"><div class="frames-placeholder">아직 추가한 이미지가 없습니다.</div></div>
  <div class="export-panel"><div><small>EXPORT CENTER</small><h2>최종 결과물 저장</h2><div class="export-summary" id="exportInfo">이미지를 추가하면 출력 정보가 표시됩니다.</div></div><div class="export-buttons"><button id="exportPng" class="export-btn png"><b>PNG</b><span>투명 스프라이트 시트</span></button><button id="exportTga" class="export-btn"><b>TGA</b><span>32-bit RGBA 시트</span></button><button id="exportGif" class="export-btn gif"><b>GIF</b><span>움직이는 애니메이션</span></button></div></div>
- <footer>maxVFX Glue Studio v1.3.0 · 로컬 처리 · 이미지 서버 전송 없음 · Chrome / Edge 권장</footer>
+ <footer>maxVFX Glue Studio v1.4.0 · 로컬 처리 · 이미지 서버 전송 없음 · Chrome / Edge 권장</footer>
  </main>
 </div></div>
 <input id="fileInput" type="file" accept="image/*,.bmp" multiple hidden><input id="sheetInput" type="file" accept="image/*,.bmp" hidden>
@@ -188,6 +188,118 @@ global.GlueExport={encodePNG,encodeTGA};
 })(window);
 
 </script><script>
+/* maxVFX Glue Studio v1.4 — animated GIF89a/87a decoder (LZW, GCE, disposal, transparency, interlace). */
+(function(root){'use strict';
+function decode(input, opts={}){
+ const b=input instanceof Uint8Array?input:new Uint8Array(input), maxFrames=opts.maxFrames||512, maxPixels=opts.maxPixels||32000000;
+ let p=0;
+ function need(n){if(p+n>b.length)throw Error('손상되었거나 잘린 GIF 데이터입니다.');}
+ function u8(){need(1);return b[p++];}
+ function u16(){let lo=u8();return lo|(u8()<<8);}
+ function read(n){need(n);const v=b.subarray(p,p+n);p+=n;return v;}
+ function skipBlocks(){while(true){const n=u8();if(!n)break;read(n);}}
+ function blocks(){const parts=[];let size=0;while(true){const n=u8();if(!n)break;parts.push(read(n));size+=n;if(size>100000000)throw Error('GIF 압축 데이터가 너무 큽니다.');}const out=new Uint8Array(size);let k=0;for(const part of parts){out.set(part,k);k+=part.length;}return out;}
+ const head=String.fromCharCode(...read(6));if(head!=='GIF89a'&&head!=='GIF87a')throw Error('GIF87a/GIF89a 형식이 아닙니다.');
+ const w=u16(),h=u16(),flags=u8(),backgroundIndex=u8();u8();
+ if(!w||!h||w>4096||h>4096||w*h>maxPixels)throw Error('GIF 해상도 제한을 초과했습니다.');
+ function palette(n){return read(n*3);}
+ const globalPalette=(flags&128)?palette(1<<((flags&7)+1)):null;
+ const result=[],canvas=new Uint8ClampedArray(w*h*4);
+ let gfx={delayMs:100,transparentIndex:-1,disposal:0},previous=null,loopCount=0,total=0;
+ function clearRect(left,top,ww,hh,transparent){const pal=globalPalette,color=pal&&backgroundIndex*3+2<pal.length?[pal[backgroundIndex*3],pal[backgroundIndex*3+1],pal[backgroundIndex*3+2]]:[0,0,0];
+  for(let y=Math.max(0,top);y<Math.min(h,top+hh);y++)for(let x=Math.max(0,left);x<Math.min(w,left+ww);x++){
+   const off=(y*w+x)*4;canvas[off]=transparent?0:color[0];canvas[off+1]=transparent?0:color[1];canvas[off+2]=transparent?0:color[2];canvas[off+3]=transparent?0:255;
+  }
+ }
+ function unpackLZW(bytes,minSize,expected){if(minSize<2||minSize>8)throw Error('지원하지 않는 GIF LZW 크기입니다.');
+  const clear=1<<minSize,end=clear+1,prefix=new Int16Array(4096),suffix=new Uint8Array(4096),stack=new Uint8Array(4097),output=new Uint8Array(expected);
+  let size=minSize+1,mask=(1<<size)-1,next=end+1,bit=0,old=-1,first=0,len=0;
+  function code(){if(bit+size>bytes.length*8)return -1;const idx=bit>>3;let raw=bytes[idx]|((bytes[idx+1]||0)<<8)|((bytes[idx+2]||0)<<16);raw>>=bit&7;bit+=size;return raw&mask;}
+  while(len<expected){let c=code();if(c<0)break;if(c===clear){size=minSize+1;mask=(1<<size)-1;next=end+1;old=-1;continue;}if(c===end)break;
+   const curr=c;let count=0;
+   if(c>=next){if(old<0||c!==next)throw Error('GIF LZW 데이터가 올바르지 않습니다.');stack[count++]=first;c=old;}
+   while(c>=clear){if(c>=next||count>=4096)throw Error('GIF 압축 사전이 손상되었습니다.');stack[count++]=suffix[c];c=prefix[c];}
+   first=c;stack[count++]=c;
+   while(count){if(len>=expected)break;output[len++]=stack[--count];}
+   if(old!==-1&&next<4096){prefix[next]=old;suffix[next]=first;next++;if(next===(1<<size)&&size<12){size++;mask=(1<<size)-1;}}
+   old=curr;
+  }
+  if(len!==expected)throw Error('GIF 이미지 압축 데이터가 부족합니다.');return output;
+ }
+ let nblocks=0;
+ while(p<b.length){if(++nblocks>100000)throw Error('GIF 블록이 비정상적으로 많습니다.');const type=u8();if(type===0x3b)break;
+  if(type===0x21){const label=u8();if(label===0xf9){const length=u8();if(length!==4)throw Error('GIF 그래픽 제어 블록 오류');const packed=u8(),centis=u16(),transparent=u8();if(u8()!==0)throw Error('GIF GCE 종단자 오류');gfx={delayMs:centis?Math.max(20,centis*10):100,transparentIndex:(packed&1)?transparent:-1,disposal:(packed>>2)&7};}
+   else if(label===0xff){const app=String.fromCharCode(...read(u8()));const data=blocks();if(app.startsWith('NETSCAPE')&&data.length>=3&&data[0]===1)loopCount=data[1]|data[2]<<8;}
+   else skipBlocks();continue;
+  }
+  if(type!==0x2c)throw Error('알 수 없는 GIF 데이터 블록입니다: '+type);
+  if(previous){if(previous.disposal===2)clearRect(previous.left,previous.top,previous.w,previous.h,previous.clearToTransparent);else if(previous.disposal===3&&previous.before)canvas.set(previous.before);previous=null;}
+  const left=u16(),top=u16(),fw=u16(),fh=u16(),desc=u8();
+  if(!fw||!fh||fw*fh>maxPixels)throw Error('GIF 프레임 크기가 올바르지 않습니다.');
+  const pal=(desc&128)?palette(1<<((desc&7)+1)):globalPalette;if(!pal)throw Error('GIF 색상 팔레트가 없습니다.');
+  const interlaced=!!(desc&64),minimum=u8(),compressed=blocks(),indices=unpackLZW(compressed,minimum,fw*fh);
+  if(result.length>=maxFrames||total+w*h>maxPixels)throw Error('GIF 프레임 수 또는 총 픽셀 제한을 초과했습니다.');
+  const before=gfx.disposal===3?canvas.slice():null;
+  let pos=0;
+  function drawRow(y){for(let x=0;x<fw;x++){const index=indices[pos++];if(index===gfx.transparentIndex)continue;
+    const xx=left+x,yy=top+y,ci=index*3;if(xx<0||xx>=w||yy<0||yy>=h||ci+2>=pal.length)continue;
+    const o=(yy*w+xx)*4;canvas[o]=pal[ci];canvas[o+1]=pal[ci+1];canvas[o+2]=pal[ci+2];canvas[o+3]=255;
+  }}
+  if(interlaced){for(const [start,step] of [[0,8],[4,8],[2,4],[1,2]])for(let y=start;y<fh;y+=step)drawRow(y);}else for(let y=0;y<fh;y++)drawRow(y);
+  result.push({rgba:canvas.slice(),durationMs:gfx.delayMs});total+=w*h;
+  previous={left,top,w:fw,h:fh,before,disposal:gfx.disposal,clearToTransparent:gfx.transparentIndex===backgroundIndex};
+  gfx={delayMs:100,transparentIndex:-1,disposal:0};
+ }
+ if(!result.length)throw Error('GIF에 이미지 프레임이 없습니다.');
+ return {width:w,height:h,frames:result,loopCount};
+}
+root.GlueGIFDecode={decode};
+})(typeof window==='undefined'?globalThis:window);
+
+/* maxVFX Glue Studio v1.4 ZIP STORE writer/reader. No CDNs or external libraries. */
+(function(root){'use strict';
+const encoder=new TextEncoder(),decoder=new TextDecoder('utf-8',{fatal:true});
+const table=new Uint32Array(256);for(let i=0;i<256;i++){let c=i;for(let j=0;j<8;j++)c=c&1?(c>>>1)^0xedb88320:c>>>1;table[i]=c>>>0;}
+function crc32(data){let c=0xffffffff;for(const v of data)c=(c>>>8)^table[(c^v)&255];return(c^0xffffffff)>>>0;}
+function dosDate(t=new Date()){const yr=Math.min(2107,Math.max(1980,t.getFullYear()));return [((t.getHours()&31)<<11)|((t.getMinutes()&63)<<5)|((t.getSeconds()/2)&31),((yr-1980)<<9)|((t.getMonth()+1)<<5)|t.getDate()];}
+function view(size){const bytes=new Uint8Array(size);return {bytes,dv:new DataView(bytes.buffer)};}
+function asBytes(value){if(value instanceof Uint8Array)return value;if(value instanceof ArrayBuffer)return new Uint8Array(value);if(typeof value==='string')return encoder.encode(value);throw Error('ZIP에 지원되지 않는 입력입니다.');}
+function nameCheck(s){if(!s||s.startsWith('/')||s.includes('\\')||s.split('/').some(x=>x==='..'||x==='.'||!x)||s.includes('\0'))throw Error('잘못된 ZIP 파일명: '+s);return s;}
+function pack(entries){if(!Array.isArray(entries)||!entries.length||entries.length>1024)throw Error('ZIP 항목 수 제한 (1~1024)');
+ const seen=new Set(),parts=[],centers=[];let offset=0,centralSize=0;
+ const [time,date]=dosDate();
+ for(const item of entries){const name=nameCheck(item.name);if(seen.has(name))throw Error('중복 ZIP 파일명 '+name);seen.add(name);
+  const nb=encoder.encode(name),data=asBytes(item.data),size=data.length,crc=crc32(data);
+  if(nb.length>65535||size>0xffffffff||offset+size>0xffffffff)throw Error('ZIP32 크기 제한 초과');
+  const local=view(30+nb.length),v=local.dv;v.setUint32(0,0x04034b50,true);v.setUint16(4,20,true);v.setUint16(6,0x800,true);v.setUint16(8,0,true);v.setUint16(10,time,true);v.setUint16(12,date,true);v.setUint32(14,crc,true);v.setUint32(18,size,true);v.setUint32(22,size,true);v.setUint16(26,nb.length,true);local.bytes.set(nb,30);parts.push(local.bytes,data);
+  const center=view(46+nb.length),c=center.dv;c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x800,true);c.setUint16(10,0,true);c.setUint16(12,time,true);c.setUint16(14,date,true);c.setUint32(16,crc,true);c.setUint32(20,size,true);c.setUint32(24,size,true);c.setUint16(28,nb.length,true);c.setUint32(42,offset,true);center.bytes.set(nb,46);centers.push(center.bytes);centralSize+=center.bytes.length;offset+=local.bytes.length+size;
+ }
+ if(offset+centralSize>0xffffffff)throw Error('ZIP32 크기 제한 초과');const end=view(22),e=end.dv;e.setUint32(0,0x06054b50,true);e.setUint16(8,entries.length,true);e.setUint16(10,entries.length,true);e.setUint32(12,centralSize,true);e.setUint32(16,offset,true);
+ return new Blob([...parts,...centers,end.bytes],{type:'application/zip'});
+}
+function unpack(input,limits={}){const b=asBytes(input),v=new DataView(b.buffer,b.byteOffset,b.byteLength),maxBytes=limits.maxBytes||350000000,maxEntries=limits.maxEntries||1024;
+ const u16=o=>v.getUint16(o,true),u32=o=>v.getUint32(o,true);let eof=-1;
+ for(let i=b.length-22;i>=Math.max(0,b.length-65557);i--){if(u32(i)===0x06054b50&&i+22+u16(i+20)===b.length){eof=i;break;}}
+ if(eof<0)throw Error('ZIP 중앙 디렉터리가 없습니다.');const count=u16(eof+10),dirSize=u32(eof+12),offset=u32(eof+16);
+ if(count>maxEntries||count!==u16(eof+8)||offset+dirSize>eof||u16(eof+4)||u16(eof+6))throw Error('ZIP 구조나 크기가 지원되지 않습니다.');
+ let cursor=offset,total=0;const files=new Map();
+ for(let i=0;i<count;i++){if(cursor+46>eof||u32(cursor)!==0x02014b50)throw Error('ZIP 디렉터리가 손상되었습니다.');
+  const flags=u16(cursor+8),method=u16(cursor+10),crc=u32(cursor+16),size=u32(cursor+20),nameLen=u16(cursor+28),extra=u16(cursor+30),comment=u16(cursor+32),localOffset=u32(cursor+42);
+  if(!(flags&0x800)||method!==0||u32(cursor+24)!==size||(flags&1))throw Error('이 ZIP은 저장형(STORE) 파일만 지원합니다.');
+  if(cursor+46+nameLen+extra+comment>eof)throw Error('ZIP 파일명이 잘렸습니다.');
+  const name=nameCheck(decoder.decode(b.subarray(cursor+46,cursor+46+nameLen)));
+  if(files.has(name)||size>maxBytes||(total+=size)>maxBytes)throw Error('ZIP 크기 또는 중복 파일 제한 초과');
+  if(localOffset+30>b.length||u32(localOffset)!==0x04034b50)throw Error('ZIP 로컬 헤더 오류');
+  const dataStart=localOffset+30+u16(localOffset+26)+u16(localOffset+28);
+  if(dataStart+size>b.length)throw Error('ZIP 데이터가 잘렸습니다.');const data=b.subarray(dataStart,dataStart+size);
+  if(crc32(data)!==crc)throw Error('ZIP 파일 CRC 검증 실패: '+name);
+  files.set(name,data);cursor+=46+nameLen+extra+comment;
+ }
+ return files;
+}
+root.GlueZIP={pack,unpack,crc32};
+})(typeof window==='undefined'?globalThis:window);
+
 /* maxVFX Glue Studio v1.0.0 — 100% offline browser editor */
 (()=>{'use strict';
 const $=id=>document.getElementById(id);
@@ -320,7 +432,7 @@ function renderFrames(){const list=$('frames');list.replaceChildren();if(!state.
 async function loadFile(file){const bitmap=await createImageBitmap(file);if(bitmap.width>10000||bitmap.height>10000){bitmap.close();throw Error('입력 이미지가 10,000px을 초과합니다.');}
  let thumb=makeCanvas(100,96),ctx=thumb.getContext('2d');let s=Math.min(100/bitmap.width,96/bitmap.height);ctx.drawImage(bitmap,(100-bitmap.width*s)/2,(96-bitmap.height*s)/2,bitmap.width*s,bitmap.height*s);
  return{id:state.nextId++,name:file.name,bitmap,thumb:thumb.toDataURL('image/png')};}
-async function addFiles(files){const images=Array.from(files).filter(f=>f.type.startsWith('image/')||/\.(png|jpe?g|webp|bmp|gif)$/i.test(f.name));if(!images.length){toast('지원하는 이미지 파일이 없습니다.',true);return;}
+async function addFiles(files){if(window.GlueV14?.importFiles && !window.GlueV14.passthrough)return window.GlueV14.importFiles(files);const images=Array.from(files).filter(f=>f.type.startsWith('image/')||/\.(png|jpe?g|webp|bmp|gif)$/i.test(f.name));if(!images.length){toast('지원하는 이미지 파일이 없습니다.',true);return;}
  if(state.frames.length+images.length>512){toast('한 번에 최대 512프레임까지 사용할 수 있습니다.',true);return;}
  if(state.busy)return;busy('이미지 가져오는 중',`${images.length}개 이미지 준비`);await sleep();let success=[],failure=[];
  for(const file of images.sort((a,b)=>numeric.compare(a.name,b.name))){try{success.push(await loadFile(file));}catch(e){failure.push(`${file.name}: ${e.message}`);}}
@@ -406,25 +518,443 @@ function bind(){
 }
 updateAlphaUI();bind();$('stage').classList.add('bg-checker');updateStats();
 // expose a small test API for local regression checks (does not send or store images).
-window.__GlueTest={alphaProcess,applyBleed,sheetRaw,readConf,state,dimensions,buildFrame,addFiles,sliceSheet};
+window.__GlueTest={alphaProcess,applyBleed,sheetRaw,readConf,state,dimensions,buildFrame,addFiles,sliceSheet,disposeAll,renderFrames,invalidate,toast,busy,unbusy,stopPlay,setView};
 })();
 
-</script>
-<script>
-/* maxVFX Glue Studio v1.1 addon — gzip transport, fully offline. Readable source is shipped in the release ZIP. */
-(async()=>{try{if(!('DecompressionStream' in window))throw Error('Modern browser with DecompressionStream required');const data=Uint8Array.from(atob("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"),c=>c.charCodeAt(0));const stream=new Blob([data]).stream().pipeThrough(new DecompressionStream('gzip'));const code=await new Response(stream).text();const url=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));const el=document.createElement('script');el.src=url;el.onload=()=>URL.revokeObjectURL(url);el.onerror=()=>{URL.revokeObjectURL(url);console.error('v1.1 addon script load failed');};document.head.append(el);}catch(e){console.error('v1.1 addon failed:',e);}})();
-</script>
-<script>
-/* v1.2.0 source packed for static GitHub Pages. Readable source is in ZIP. */
-(async()=>{try{const data=Uint8Array.from(atob('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'),c=>c.charCodeAt(0));const script=await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('gzip'))).text();(0,eval)(script);}catch(err){console.error('[Glue Studio v1.2]',err)}})();
+</script><script>
+/* maxVFX Glue Studio v1.1.0 — Channels + Pivot + Atlas Metadata. Offline / no dependencies. */
+(()=>{'use strict';
+const core=window.__GlueTest;
+if(!core||!window.GlueExport){console.error('[Glue Studio] v1.1 addon: base app missing');return;}
+const $=id=>document.getElementById(id), state=core.state;
+const finite=(x,min,max,otherwise)=>{const n=Number(x);return Number.isFinite(n)?Math.min(max,Math.max(min,n)):otherwise;};
+const v11={pivots:new Map(),defaultPivot:{x:.5,y:.5},editing:false};
+const make=(tag,props={},content='')=>{const el=document.createElement(tag);for(const [k,v] of Object.entries(props)){if(k==='className')el.className=v;else if(k==='id')el.id=v;else el.setAttribute(k,v);}if(content)el.textContent=content;return el;};
+function mount(){
+ const layout=$('sidebar').querySelectorAll('.panel')[1];const pivotPanel=make('section',{className:'panel v11-panel'});
+ pivotPanel.innerHTML=`<div class="section-title"><b class="step">05</b><h3>피벗 · Pivot Editor</h3></div>
+  <p class="small-muted">정규화 피벗 기준: (0,0) 왼쪽 아래 · (0.5,0.5) 중앙 · (1,1) 오른쪽 위.</p>
+  <div class="field-grid v11-fields"><label class="field">Pivot X <input id="pivotX" type="number" min="0" max="1" step="0.01" value="0.5"></label><label class="field">Pivot Y <input id="pivotY" type="number" min="0" max="1" step="0.01" value="0.5"></label></div>
+  <div class="presets"><span>빠른 배치</span><button type="button" data-preset-pivot="0.5,0.5">중앙</button><button type="button" data-preset-pivot="0.5,0">하단</button><button type="button" data-preset-pivot="0,0">좌하</button><button type="button" data-preset-pivot="0.5,1">상단</button></div>
+  <div class="v11-actions"><button id="pivotAll" class="small-btn" type="button">모든 프레임 적용</button><button id="pivotSingle" class="small-btn" type="button">선택 프레임 적용</button><button id="pivotClear" class="small-btn danger" type="button">개별 피벗 초기화</button></div>
+  <label class="checkline"><input id="pivotEdit" type="checkbox"> 미리보기에서 클릭하여 피벗 배치</label><p id="pivotStatus" class="small-muted">공통 피벗: (0.50, 0.50)</p>`;
+ layout.after(pivotPanel);
+ const exportPanel=$('exportPng').closest('.export-panel');const channelBox=make('div',{className:'v11-export'});
+ channelBox.innerHTML=`<div class="v11-export-title">CHANNEL &amp; METADATA EXPORT</div><div class="v11-export-row"><label class="field">채널 선택<select id="channelMode"><option value="rgb">RGB Only · Alpha 255</option><option value="alpha">Alpha Only · Grayscale</option></select></label><button id="channelPNG" class="small-btn" type="button">채널 PNG</button><button id="channelTGA" class="small-btn" type="button">채널 TGA</button><button id="metaJSON" class="small-btn" type="button">JSON 메타데이터</button></div><p class="small-muted">채널 출력은 기존 PNG/TGA와 별도 파일로 저장됩니다. JSON에는 엔진에서 활용할 UV 및 Pivot 좌표가 포함됩니다.</p>`;
+ exportPanel.after(channelBox);
+ const marker=make('div',{id:'pivotMarker',className:'pivot-marker'});marker.innerHTML='<span></span>';$('stage-inner').append(marker);
+ const style=make('style',{id:'v11-style'});style.textContent=`.v11-panel{border-color:#3b5b65}.v11-fields{margin-top:13px}.v11-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.v11-export{background:#16212d;border:1px solid #375166;border-radius:12px;margin-top:10px;padding:17px}.v11-export-title{color:#73e1c1;font-size:10px;letter-spacing:1.8px;font-weight:800;margin-bottom:12px}.v11-export-row{display:flex;gap:9px;align-items:end;flex-wrap:wrap}.v11-export-row .field{min-width:170px;flex:1}.v11-export-row button{min-height:39px}.pivot-marker{position:absolute;width:22px;height:22px;border:2px solid #fcda69;border-radius:100%;transform:translate(-50%,-50%);box-shadow:0 0 0 1px #000,0 0 10px #0009;pointer-events:none;z-index:3;display:none}.pivot-marker:before,.pivot-marker:after{content:'';position:absolute;background:#fcda69}.pivot-marker:before{width:32px;height:2px;left:-7px;top:8px}.pivot-marker:after{width:2px;height:32px;left:8px;top:-7px}#stage.pivot-edit{cursor:crosshair}#pivotStatus{min-height:1.8em}@media(max-width:760px){.v11-panel{grid-column:1/-1}}@media(max-width:520px){.v11-export-row .field{flex-basis:100%}.v11-export-row button{flex:1}}`;
+ document.head.append(style);
+ $('pivotEdit').addEventListener('change',()=>{v11.editing=$('pivotEdit').checked;$('stage').classList.toggle('pivot-edit',v11.editing);if(v11.editing&&state.view==='source')document.querySelector('[data-view="anim"]').click();updateMarker();});
+ for(const inp of ['pivotX','pivotY'])$(inp).addEventListener('input',()=>{v11.defaultPivot=fieldPivot();updateStatus();updateMarker();});
+ document.querySelectorAll('[data-preset-pivot]').forEach(el=>el.addEventListener('click',()=>{const [x,y]=el.dataset.presetPivot.split(',').map(Number);$('pivotX').value=x;$('pivotY').value=y;v11.defaultPivot={x,y};updateStatus();updateMarker();}));
+ $('pivotAll').addEventListener('click',()=>{v11.defaultPivot=fieldPivot();v11.pivots.clear();updateStatus('모든 프레임에 공통 피벗 적용');updateMarker();});
+ $('pivotSingle').addEventListener('click',()=>{const fr=state.frames[state.selected];if(!fr)return notify('프레임을 추가하세요.',true);v11.pivots.set(fr.id,fieldPivot());updateStatus('선택 프레임에 개별 피벗 적용');updateMarker();});
+ $('pivotClear').addEventListener('click',()=>{const fr=state.frames[state.selected];if(fr)v11.pivots.delete(fr.id);updateStatus('선택 프레임의 개별 피벗 해제');updateMarker();});
+ $('channelPNG').addEventListener('click',()=>exportChannel('png'));
+ $('channelTGA').addEventListener('click',()=>exportChannel('tga'));
+ $('metaJSON').addEventListener('click',exportMetadata);
+ $('preview').addEventListener('click',positionFromClick);
+ // Base editor remains the authority for selection, frame ordering and view changes.
+ const watcher=new MutationObserver(updateMarker);watcher.observe($('preview'),{attributes:true,attributeFilter:['width','height']});
+ $('frames').addEventListener('click',()=>setTimeout(()=>{updateStatus();updateMarker();},0));
+ $('scrub').addEventListener('input',()=>setTimeout(()=>{updateStatus();updateMarker();},0));
+ $('btnPrev').addEventListener('click',()=>setTimeout(()=>{updateStatus();updateMarker();},0));
+ $('btnNext').addEventListener('click',()=>setTimeout(()=>{updateStatus();updateMarker();},0));
+ document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>setTimeout(updateMarker,0)));
+ $('btnSort').addEventListener('click',()=>setTimeout(updateMarker,0));$('btnReverse').addEventListener('click',()=>setTimeout(updateMarker,0));
+ $('btnReset').addEventListener('click',()=>{v11.pivots.clear();v11.defaultPivot={x:.5,y:.5};$('pivotX').value=.5;$('pivotY').value=.5;updateStatus();updateMarker();});
+ // Memory management: avoid retaining per-frame overrides after all files are removed.
+ $('btnClear').addEventListener('click',()=>setTimeout(()=>{if(!state.frames.length){v11.pivots.clear();updateMarker();}},0));
+ updateStatus();updateMarker();
+ let lastFrame=-1,lastView='';function monitor(){if(state.selected!==lastFrame||state.view!==lastView){lastFrame=state.selected;lastView=state.view;updateStatus();updateMarker();}requestAnimationFrame(monitor);}requestAnimationFrame(monitor);
+}
+function notify(message,error=false){const t=$('toast');t.textContent=message;t.className='visible'+(error?' error':'');setTimeout(()=>{if(t.textContent===message)t.className='';},3600);}
+function fieldPivot(){return{x:finite($('pivotX').value,0,1,.5),y:finite($('pivotY').value,0,1,.5)};}
+function effectivePivot(frame){return v11.pivots.get(frame?.id)||v11.defaultPivot;}
+function updateStatus(prefix=''){const f=state.frames[state.selected],p=effectivePivot(f);$('pivotStatus').textContent=`${prefix?prefix+' · ':''}${f&&v11.pivots.has(f.id)?'개별':'공통'} 피벗: (${p.x.toFixed(2)}, ${p.y.toFixed(2)})`;}
+function markerCoord(){const frame=state.frames[state.selected];if(!frame)return null;const c=core.readConf(),d=core.dimensions(c),pivot=effectivePivot(frame);
+ if(state.view==='source')return null;
+ if(state.view==='sheet'){const idx=state.selected;return{x:c.padding+(idx%d.cols)*(c.tileW+c.gap)+pivot.x*c.tileW,y:c.padding+Math.floor(idx/d.cols)*(c.tileH+c.gap)+(1-pivot.y)*c.tileH};}
+ return{x:pivot.x*c.tileW,y:(1-pivot.y)*c.tileH};
+}
+function updateMarker(){const m=$('pivotMarker');if(!m)return;const p=markerCoord();if(!p){m.style.display='none';return;}m.style.display='block';m.style.left=p.x+'px';m.style.top=p.y+'px';}
+function positionFromClick(e){if(!v11.editing||state.view==='source'||!state.frames.length)return;const cvs=$('preview'),bounds=cvs.getBoundingClientRect();if(!bounds.width||!bounds.height)return;const x=(e.clientX-bounds.left)*cvs.width/bounds.width,y=(e.clientY-bounds.top)*cvs.height/bounds.height,c=core.readConf(),d=core.dimensions(c);
+ let localX=x,localY=y,idx=state.selected;if(state.view==='sheet'){
+  const relX=x-c.padding,relY=y-c.padding,stepX=c.tileW+c.gap,stepY=c.tileH+c.gap;
+  const col=Math.floor(relX/stepX),row=Math.floor(relY/stepY);
+  if(col<0||col>=d.cols||row<0||row>=d.rows)return;
+  localX=relX-col*stepX;localY=relY-row*stepY;idx=row*d.cols+col;
+  if(idx>=state.frames.length||localX<0||localY<0||localX>c.tileW||localY>c.tileH)return;
+ }
+ const p={x:finite(localX/c.tileW,0,1,.5),y:finite(1-localY/c.tileH,0,1,.5)};
+ v11.pivots.set(state.frames[idx].id,p);$('pivotX').value=p.x.toFixed(3);$('pivotY').value=p.y.toFixed(3);
+ if(idx!==state.selected){state.selected=idx;$('scrub').value=idx;$('playTime').textContent=`FRAME ${idx+1} / ${state.frames.length}`;document.querySelectorAll('.frame').forEach((el,i)=>el.classList.toggle('active',i===idx));}
+ updateStatus('미리보기 클릭으로 지정');updateMarker();
+}
+function fileBase(){const s=state.frames[0]?.name||'maxVFX_Flipbook';return s.replace(/\.[^.]+$/,'').replace(/(?:[_\s.-]?\d+)+$/,'').replace(/[^a-zA-Z0-9가-힣_-]/g,'_').slice(0,45)||'maxVFX_Flipbook';}
+function saveBlob(blob,name){const url=URL.createObjectURL(blob),a=make('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);}
+function transformChannels(data,mode){const out=new Uint8Array(data.length);for(let i=0;i<data.length;i+=4){if(mode==='alpha'){out[i]=out[i+1]=out[i+2]=data[i+3];}else{out[i]=data[i];out[i+1]=data[i+1];out[i+2]=data[i+2];}out[i+3]=255;}return out;}
+async function exportChannel(type){if(!state.frames.length)return notify('이미지를 먼저 추가하세요.',true);if(state.busy)return;state.busy=true;try{
+ const c=core.readConf(),atlas=core.sheetRaw(c),mode=$('channelMode').value,rgba=transformChannels(atlas.bytes,mode);
+ const blob=type==='png'?await GlueExport.encodePNG(rgba,atlas.width,atlas.height):GlueExport.encodeTGA(rgba,atlas.width,atlas.height);
+ saveBlob(blob,`${fileBase()}_${mode.toUpperCase()}_${atlas.width}x${atlas.height}.${type}`);notify(`${mode.toUpperCase()} 채널 ${type.toUpperCase()} 저장 완료`);
+ }catch(error){console.error(error);notify('채널 출력 실패: '+error.message,true);}finally{state.busy=false;}}
+function buildMetadata(){const c=core.readConf(),d=core.dimensions(c),stepX=c.tileW+c.gap,stepY=c.tileH+c.gap;
+ if(d.width>8192||d.height>8192||d.width*d.height>45000000)throw Error('시트 해상도 제한을 초과했습니다.');
+ return{schema:'maxvfx.glue-studio.atlas/1',generator:'maxVFX Glue Studio v1.1.0',sheet:{width:d.width,height:d.height,columns:d.cols,rows:d.rows,frameWidth:c.tileW,frameHeight:c.tileH,gap:c.gap,padding:c.padding,powerOfTwo:c.power2,coordinateOrigin:'top-left'},animation:{fps:c.fps,frameCount:state.frames.length,loop:true},alpha:{mode:c.alphaMode,bleed:c.bleed,cutoff:c.cutoff},frames:state.frames.map((f,i)=>{const x=c.padding+(i%d.cols)*stepX,y=c.padding+Math.floor(i/d.cols)*stepY,p=effectivePivot(f);
+ return{index:i,name:f.name,rect:{x,y,width:c.tileW,height:c.tileH},unityRect:{x,y:d.height-y-c.tileH,width:c.tileW,height:c.tileH},uv:{u:x/d.width,v:y/d.height,width:c.tileW/d.width,height:c.tileH/d.height},pivot:{x:p.x,y:p.y},pivotPixelTopLeft:{x:p.x*c.tileW,y:(1-p.y)*c.tileH},overriddenPivot:v11.pivots.has(f.id)};
+ }) ,engineNotes:{unity:'unityRect has bottom-left origin. pivot is normalized (0,0 bottom-left). Requires a custom sprite slicing/import script for automatic use.',unreal:'uv has top-left texture origin. Grid SubImage alone cannot consume individual pivots. Apply pivots in a custom material/module.'}};
+}
+function exportMetadata(){if(!state.frames.length)return notify('이미지를 먼저 추가하세요.',true);try{const json=JSON.stringify(buildMetadata(),null,2);saveBlob(new Blob([json],{type:'application/json'}),`${fileBase()}_atlas.json`);notify('Atlas JSON 저장 완료');}catch(e){notify(e.message,true);}}
+window.__GlueV11Test={transformChannels,buildMetadata,effectivePivot,v11,positionFromClick};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+})();
+
+</script><script>
+/* maxVFX Glue Studio v1.2.0 — independent preview-speed transport + Unreal per-frame CSV */
+(()=>{'use strict';
+const core=window.__GlueTest;
+if(!core){console.error('Glue Studio v1.2: base app was not loaded');return;}
+const $=id=>document.getElementById(id),s=core.state;
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const playback={playing:false,handle:0,last:0,accumulated:0,speed:1};
+function exportFps(){return clamp(Number($('fps').value)||12,1,50);}
+function effectiveFps(){return exportFps()*playback.speed;}
+function updateLabel(){if(!$('speedMultiplier'))return;$('speedMultiplier').value=playback.speed.toFixed(2).replace(/\.?0+$/,'')+'×';$('speedEffective').textContent=effectiveFps().toFixed(2).replace(/0+$/,'').replace(/\.$/,'')+' FPS';}
+function setSpeed(value){const n=Number(value);playback.speed=Number.isFinite(n)?clamp(Math.round(n*20)/20,.1,4):1;$('previewSpeed').value=playback.speed;playback.accumulated=0;playback.last=performance.now();updateLabel();document.querySelectorAll('[data-preview-speed]').forEach(btn=>btn.classList.toggle('active',Math.abs(Number(btn.dataset.previewSpeed)-playback.speed)<.001));}
+function select(index){if(!s.frames.length)return;const n=((index%s.frames.length)+s.frames.length)%s.frames.length;$('scrub').value=n;$('scrub').dispatchEvent(new Event('input',{bubbles:true}));}
+function stop(){playback.playing=false;cancelAnimationFrame(playback.handle);playback.handle=0;playback.accumulated=0;$('btnPlay').textContent='▶';$('btnPlay').setAttribute('aria-label','애니메이션 재생');}
+function tick(now){if(!playback.playing)return;if(!s.frames.length){stop();return;}const elapsed=clamp(now-playback.last,0,250);playback.last=now;playback.accumulated+=elapsed*effectiveFps()/1000;const steps=Math.floor(playback.accumulated);if(steps>=1){playback.accumulated-=steps;select(s.selected+steps);}playback.handle=requestAnimationFrame(tick);}
+function toggle(){if(playback.playing){stop();return;}if(!s.frames.length){const t=$('toast');t.textContent='재생할 프레임을 먼저 추가하세요.';t.className='visible error';setTimeout(()=>t.className='',2500);return;}if(s.view==='sheet')document.querySelector('[data-view="anim"]').click();if(s.view==='source')document.querySelector('[data-view="anim"]').click();playback.playing=true;playback.last=performance.now();playback.accumulated=0;$('btnPlay').textContent='Ⅱ';$('btnPlay').setAttribute('aria-label','애니메이션 일시정지');playback.handle=requestAnimationFrame(tick);}
+function make(tag,cls,html){const el=document.createElement(tag);el.className=cls;el.innerHTML=html;return el;}
+function safeName(){return(s.frames[0]?.name||'maxVFX_Flipbook').replace(/\.[^.]+$/,'').replace(/(?:[_\s.-]?\d+)+$/,'').replace(/[^a-zA-Z0-9가-힣_-]/g,'_').slice(0,45)||'maxVFX_Flipbook';}
+function saveFile(text,name,mime){const blob=new Blob([text],{type:mime});const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),15000);}
+function exportCSV(){if(!s.frames.length)return;const v11=window.__GlueV11Test;if(!v11)return;const meta=v11.buildMetadata();const headers=['frame','name','rectX','rectY','rectW','rectH','uTopLeft','vTopLeft','uWidth','vHeight','pivotX','pivotY','fps','sheetW','sheetH','columns','rows'];const esc=(value)=>'"'+String(value).replace(/"/g,'""')+'"';const lines=[headers.join(',')];for(const f of meta.frames){lines.push([f.index,f.name,f.rect.x,f.rect.y,f.rect.width,f.rect.height,f.uv.u,f.uv.v,f.uv.width,f.uv.height,f.pivot.x,f.pivot.y,meta.animation.fps,meta.sheet.width,meta.sheet.height,meta.sheet.columns,meta.sheet.rows].map(esc).join(','));}saveFile('\ufeff'+lines.join('\r\n'),safeName()+'_UnrealFlipbook.csv','text/csv;charset=utf-8');}
+function mount(){
+ const bar=$('stage')?.parentElement?.querySelector('.playbar');if(!bar)return;
+ const panel=make('section','v12-transport',`<div class="v12-speed-row"><label for="previewSpeed"><b>미리보기 재생속도</b> <output id="speedMultiplier">1×</output></label><span id="speedEffective">12 FPS</span></div><input id="previewSpeed" type="range" min="0.1" max="4" step="0.05" value="1" aria-label="애니메이션 미리보기 속도"><div class="v12-preset-line"><div class="v12-speed-presets"><button data-preview-speed="0.25">0.25×</button><button data-preview-speed="0.5">0.5×</button><button data-preview-speed="1">1×</button><button data-preview-speed="2">2×</button><button data-preview-speed="4">4×</button></div><button class="small-btn" id="syncGifFps" title="미리보기의 실효 FPS를 GIF 출력 FPS로 복사">GIF FPS 반영</button></div><p class="small-muted">재생 배속은 미리보기에만 적용됩니다. GIF 속도는 왼쪽 ‘재생 FPS’에서 설정하며, ‘GIF FPS 반영’으로 동기화할 수 있습니다.</p>`);
+ bar.after(panel);
+ const css=document.createElement('style');css.textContent=`.v12-transport{background:#17222e;border:1px solid #355164;border-radius:11px;padding:13px 16px;margin-top:7px;display:grid;gap:9px}.v12-speed-row,.v12-preset-line{display:flex;align-items:center;justify-content:space-between;gap:9px;flex-wrap:wrap}.v12-speed-row output{font-weight:800;color:#80eac5;margin-left:7px}.v12-speed-row>span{font-variant-numeric:tabular-nums;font-size:12px;color:#a5cce2}.v12-transport input[type=range]{width:100%;accent-color:#70d9bf}.v12-speed-presets{display:flex;gap:5px;flex-wrap:wrap}.v12-speed-presets button{border:1px solid #3a5463;background:#1d2d38;color:#dce9ec;padding:6px 10px;border-radius:7px;cursor:pointer}.v12-speed-presets button.active{background:#246b60;border-color:#70d9bf;color:white}.v12-transport .small-muted{margin:0}.v12-engine-btn{margin-left:5px}@media(max-width:600px){.v12-transport{padding:12px}.v12-preset-line>*{max-width:100%}}`;document.head.append(css);
+ $('previewSpeed').addEventListener('input',e=>setSpeed(e.target.value));document.querySelectorAll('[data-preview-speed]').forEach(b=>b.addEventListener('click',()=>setSpeed(b.dataset.previewSpeed)));
+ $('fps').addEventListener('input',updateLabel);$('syncGifFps').addEventListener('click',()=>{const synced=clamp(Math.round(effectiveFps()),1,50);$('fps').value=synced;$('fps').dispatchEvent(new Event('input',{bubbles:true}));updateLabel();});
+ // Capture input before v1.0's legacy player. Single source of playback truth.
+ $('btnPlay').addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();toggle();},true);
+ document.addEventListener('keydown',e=>{if(e.key!==' '||e.repeat||['INPUT','SELECT','TEXTAREA','BUTTON'].includes(e.target.tagName)||document.querySelector('dialog[open]'))return;e.preventDefault();e.stopImmediatePropagation();toggle();},true);
+ ['exportPng','exportTga','exportGif','exportTga','btnClear','btnReset'].forEach(id=>$(id)?.addEventListener('click',()=>{stop();if(id==='btnReset')setSpeed(1);},true));
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();});
+ function insertCSV(){const e=$('metaJSON');if(!e||$('unrealCSV'))return false;const btn=document.createElement('button');btn.id='unrealCSV';btn.type='button';btn.className='small-btn v12-engine-btn';btn.textContent='Unreal CSV';e.after(btn);btn.addEventListener('click',exportCSV);return true;}
+ if(!insertCSV()){const observer=new MutationObserver(()=>{if(insertCSV())observer.disconnect();});observer.observe(document.body,{subtree:true,childList:true});}
+ $('btnReset').addEventListener('click',()=>setSpeed(1)); // Run after the legacy reset handler to refresh the displayed effective FPS.
+ setSpeed(1);
+}
+window.__GlueV12Test={playback,setSpeed,effectiveFps,stop,toggle,exportCSV};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+})();
+
+</script><script>
+/* maxVFX Glue Studio v1.3.0 — alignment, alpha edge treatment, variable frame duration, source/result comparison.
+   Offline extension; core exposes hooks for render/GIF and v1.1 metadata. */
+(()=>{'use strict';
+const core=window.__GlueTest, v12=window.__GlueV12Test;
+if(!core||!v12){console.error('[Glue Studio v1.3] v1.0/v1.2 core missing');return;}
+const $=id=>document.getElementById(id), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const state=core.state, timing={playing:false,raf:0,last:0,remaining:0}, attrs={};
+const frameMs=(f,fps)=>clamp(Math.round(Number(f?.durationMs)||1000/Math.max(1,Number(fps)||12)),20,60000);
+function variableTiming(){return !!$('v13Timing')?.checked;}
+function duration(frame,fps){return variableTiming()?frameMs(frame,fps):Math.round(1000/Math.max(1,fps||12));}
+function frameDelays(frames,fps){return variableTiming()?frames.map(f=>frameMs(f,fps)):undefined;}
+function sourceRect(frame,c,legacy){return $('v13Align')?.value==='source'?{x:0,y:0,w:frame.bitmap.width,h:frame.bitmap.height}:legacy;}
+function maskCenter(data,w,h,mode){let sx=0,sy=0,total=0,l=w,t=h,r=-1,b=-1;
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+  const a=data[(y*w+x)*4+3];if(a<8)continue;
+  l=Math.min(l,x);r=Math.max(r,x);t=Math.min(t,y);b=Math.max(b,y);
+  if(mode==='weighted'){sx+=x*a;sy+=y*a;total+=a;}
+ }
+ if(r<0)return null;
+ return mode==='weighted'?{x:sx/total,y:sy/total}:{x:(l+r)/2,y:(t+b)/2};
+}
+function recenter(data,w,h,mode){const center=maskCenter(data,w,h,mode);if(!center)return data;
+ const dx=Math.round((w-1)/2-center.x),dy=Math.round((h-1)/2-center.y);
+ if(dx===0&&dy===0)return data;
+ const next=new Uint8ClampedArray(data.length);
+ for(let y=0;y<h;y++){const destY=y+dy;if(destY<0||destY>=h)continue;
+  for(let x=0;x<w;x++){const destX=x+dx;if(destX<0||destX>=w)continue;
+   const from=(y*w+x)*4,to=(destY*w+destX)*4;
+   next[to]=data[from];next[to+1]=data[from+1];next[to+2]=data[from+2];next[to+3]=data[from+3];
+  }
+ }
+ return next;
+}
+function decontaminate(data,w,h,color,strength){if(strength<=0)return data;
+ const bg=color==='white'?[255,255,255]:color==='custom'?parseHex($('v13Matte')?.value||'#000000'):[0,0,0];
+ const k=strength/100;
+ for(let i=0;i<data.length;i+=4){const a=data[i+3]/255;
+  if(a<=0.04||a>=0.995)continue; // near-zero alpha is too unstable to unmatte.
+  for(let ch=0;ch<3;ch++){
+   const unmatted=clamp((data[i+ch]-bg[ch]*(1-a))/a,0,255);
+   data[i+ch]=Math.round(data[i+ch]*(1-k)+unmatted*k);
+  }
+ }
+ return data;
+}
+function parseHex(v){return [1,3,5].map(i=>parseInt(v.slice(i,i+2),16)||0);}
+function process(pixels,w,h,c,frame){let rgba=pixels;
+ const mode=$('v13Edge')?.value||'off';
+ if(mode!=='off'&&c.alphaMode==='off')decontaminate(rgba,w,h,mode,Number($('v13EdgeAmount')?.value)||0);
+ const alignment=$('v13Align')?.value||'legacy';
+ if(alignment==='bbox'||alignment==='weighted')rgba=recenter(rgba,w,h,alignment);
+ return rgba;
+}
+function invalidate(){state.cache.clear();state.cacheVersion++;$('tileW').dispatchEvent(new Event('input',{bubbles:true}));}
+function baseName(){return(state.frames[0]?.name||'maxVFX_Flipbook').replace(/\.[^.]+$/,'').replace(/(?:[_\s.-]?\d+)+$/,'').replace(/[^a-zA-Z0-9가-힣_-]/g,'_').slice(0,45)||'maxVFX_Flipbook';}
+function saveText(data,name,type){const url=URL.createObjectURL(new Blob([data],{type}));const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),12000);}
+function metadata(){const v=window.__GlueV11Test;if(!v)return null;const m=v.buildMetadata();
+ m.generator='maxVFX Glue Studio v1.3.0';m.animation.variableTiming=variableTiming();
+ m.alpha.edgeMatte=$('v13Edge')?.value||'off';m.alpha.edgeStrength=Number($('v13EdgeAmount')?.value)||0;
+ m.alignment=$('v13Align')?.value||'legacy';
+ m.frames.forEach((f,i)=>{f.durationMs=duration(state.frames[i],m.animation.fps)});return m;}
+function exportMetadata(){if(!state.frames.length)return;saveText(JSON.stringify(metadata(),null,2),baseName()+'_atlas.json','application/json');}
+function csv(){if(!state.frames.length)return;
+ const meta=metadata(), cols=['frame','name','rectX','rectY','rectW','rectH','uTopLeft','vTopLeft','uWidth','vHeight','pivotX','pivotY','durationMs','fps','sheetW','sheetH','columns','rows'];
+ const q=x=>'"'+String(x).replace(/"/g,'""')+'"';
+ const lines=[cols.join(',')];for(const f of meta.frames){const a=[f.index,f.name,f.rect.x,f.rect.y,f.rect.width,f.rect.height,f.uv.u,f.uv.v,f.uv.width,f.uv.height,f.pivot.x,f.pivot.y,f.durationMs,meta.animation.fps,meta.sheet.width,meta.sheet.height,meta.sheet.columns,meta.sheet.rows];lines.push(a.map(q).join(','));}
+ saveText('\ufeff'+lines.join('\r\n'),baseName()+'_UnrealFlipbook.csv','text/csv;charset=utf-8');
+}
+function ensureSelected(){const f=state.frames[state.selected];if(!f)return;
+ if($('v13FrameLabel'))$('v13FrameLabel').textContent=`#${state.selected+1} / ${state.frames.length} · ${f.name}`;
+ if($('v13Duration'))$('v13Duration').value=frameMs(f,$('fps').value);
+ if($('v13TimelineTotal'))$('v13TimelineTotal').textContent=`전체 ${Math.round(state.frames.reduce((a,f)=>a+duration(f,$('fps').value),0))}ms`;
+}
+function stop(){timing.playing=false;cancelAnimationFrame(timing.raf);timing.raf=0;timing.remaining=0;$('btnPlay').textContent='▶';$('btnPlay').setAttribute('aria-label','애니메이션 재생');}
+function selectFrame(i){const n=state.frames.length;if(!n)return;const el=$('scrub');el.value=((i%n)+n)%n;el.dispatchEvent(new Event('input',{bubbles:true}));ensureSelected();}
+function step(now){if(!timing.playing)return;
+ const delta=clamp(now-timing.last,0,250)*v12.playback.speed;timing.last=now;
+ let available=delta,guard=0;
+ while(available>=timing.remaining&&guard<512){available-=timing.remaining;selectFrame(state.selected+1);timing.remaining=frameMs(state.frames[state.selected],$('fps').value);guard++;}
+ timing.remaining-=available;
+ timing.raf=requestAnimationFrame(step);
+}
+function toggle(){if(!state.frames.length)return;if(timing.playing){stop();return;}
+ v12.stop();
+ if(state.view==='sheet'||state.view==='source')document.querySelector('[data-view="anim"]').click();
+ timing.playing=true;timing.last=performance.now();timing.remaining=frameMs(state.frames[state.selected],$('fps').value);
+ $('btnPlay').textContent='Ⅱ';$('btnPlay').setAttribute('aria-label','애니메이션 일시정지');timing.raf=requestAnimationFrame(step);
+}
+function paintCompare(){const f=state.frames[state.selected];if(!f)return;
+ const c=core.readConf(),w=f.bitmap.width,h=f.bitmap.height;
+ const orig=$('v13Original'),res=$('v13Processed');
+ if(!orig||!res)return;
+ orig.width=w;orig.height=h;orig.getContext('2d').drawImage(f.bitmap,0,0);
+ const bytes=core.buildFrame(f,c);res.width=c.tileW;res.height=c.tileH;
+ res.getContext('2d').putImageData(new ImageData(bytes,c.tileW,c.tileH),0,0);
+ $('v13CompareLabel').textContent=f.name;
+}
+function mount(){
+ const controls=document.createElement('section');controls.className='panel v13-panel';
+ controls.innerHTML=`<div class="section-title"><b class="step">06</b><h3>VFX 품질 보정</h3></div>
+ <label class="field">중심 정렬 방식<select id="v13Align"><option value="legacy">기존 방식 · Legacy</option><option value="source">원본 좌표 고정 · Source</option><option value="bbox">알파 범위 자동 중앙</option><option value="weighted">알파 가중 중심 중앙</option></select></label>
+ <p class="small-muted">원본 좌표 고정은 Trim 설정이 켜져 있어도 원래 위치를 유지합니다. 자동 중앙 정렬은 의도적인 움직임까지 바꿀 수 있습니다.</p>
+ <label class="field">반투명 경계 색상 보정<select id="v13Edge"><option value="off">사용 안 함 · 기존 색 유지</option><option value="black">검정 매트 제거</option><option value="white">흰색 매트 제거</option><option value="custom">사용자 지정 매트 제거</option></select></label>
+ <div class="range-row"><label for="v13EdgeAmount">보정 강도 <output id="v13EdgeValue">65%</output></label><input id="v13EdgeAmount" type="range" min="0" max="100" value="65"></div>
+ <label class="field" id="v13MatteHolder" hidden>매트 색상<input id="v13Matte" type="color" value="#000000"></label>
+ <p class="small-muted">경계 보정은 원본 알파 유지 모드에서만 적용됩니다. 검정·흰색 배경 자동 제거 모드에서는 RGB 복원이 이미 수행됩니다.</p>
+ <button id="v13CompareOpen" type="button" class="secondary">◧ 원본 / 보정 결과 비교</button>`;
+ const alpha=$('alphaMode').closest('.panel');alpha.after(controls);
+ const timer=document.createElement('section');timer.className='v13-timer';timer.innerHTML=`<div class="v13-timer-title"><strong>프레임별 재생시간</strong><label class="checkline compact"><input type="checkbox" id="v13Timing">사용</label></div>
+ <div class="v13-time-row"><span id="v13FrameLabel">프레임을 선택하세요</span><label>지속시간 <input id="v13Duration" type="number" min="20" max="60000" step="10" value="83"> ms</label></div>
+ <div class="v13-time-row"><button id="v13ResetTimes" type="button" class="small-btn">전체 기본 FPS로 초기화</button><small id="v13TimelineTotal">전체 0ms</small></div>
+ <p class="small-muted">프레임별 시간 사용 시 GIF 지연시간과 JSON/CSV에도 적용됩니다. GIF는 10ms 단위, 최소 20ms로 기록됩니다.</p>`;
+ $('v12SpeedPlaceholder')?.after(timer);
+ const speed=$('previewSpeed')?.closest('.v12-transport');if(speed)speed.after(timer);else $('stage').parentElement.append(timer);
+ const dlg=document.createElement('dialog');dlg.id='v13CompareDialog';dlg.className='v13-compare-dialog';dlg.innerHTML=`<div class="v13-compare-head"><h3>원본 / 보정 결과</h3><button id="v13CompareClose" class="small-btn">닫기 ×</button></div><p id="v13CompareLabel" class="small-muted"></p><div class="v13-compare-grid"><div><b>원본</b><canvas id="v13Original"></canvas></div><div><b>처리 결과</b><canvas id="v13Processed"></canvas></div></div>`;document.body.append(dlg);
+ const style=document.createElement('style');style.textContent=`.v13-panel{border-color:#355d63!important}.v13-panel .secondary{width:100%;margin-top:6px}.v13-timer{background:#17222e;border:1px solid #355164;border-radius:11px;padding:13px 16px;display:grid;gap:11px;margin-top:7px}.v13-timer-title,.v13-time-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.v13-timer-title strong{color:#b7eadf}.v13-time-row input{width:84px;min-height:34px;border:1px solid #4b666b;background:#102029;color:#e9f3f4;border-radius:7px;padding:5px}.v13-timer p{margin:0}.v13-time-row label{color:#9fc2c5;font-size:12px}.v13-time-row span{font-size:12px;max-width:270px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.v13-compare-dialog{border:1px solid #42636d;background:#14212b;color:#edf7f7;border-radius:13px;max-width:min(95vw,980px);width:900px;padding:18px}.v13-compare-head{display:flex;justify-content:space-between;align-items:center}.v13-compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.v13-compare-grid>div{min-width:0;display:grid;gap:8px}.v13-compare-grid canvas{width:100%;height:auto;max-height:62vh;object-fit:contain;image-rendering:auto;background-color:#202d35;background-image:linear-gradient(45deg,#344652 25%,transparent 25%),linear-gradient(-45deg,#344652 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#344652 75%),linear-gradient(-45deg,transparent 75%,#344652 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0}@media(max-width:600px){.v13-compare-grid{grid-template-columns:1fr}.v13-compare-dialog{padding:12px}}`;
+ document.head.append(style);
+ for(const id of ['v13Align','v13Edge','v13EdgeAmount','v13Matte'])$(id).addEventListener('input',()=>{if(id==='v13EdgeAmount')$('v13EdgeValue').textContent=$('v13EdgeAmount').value+'%';if(id==='v13Edge')$('v13MatteHolder').hidden=$('v13Edge').value!=='custom';invalidate();});
+ $('v13Timing').addEventListener('change',()=>{stop();v12.stop();ensureSelected();});
+ $('v13Duration').addEventListener('change',()=>{if(!state.frames.length)return;state.frames[state.selected].durationMs=clamp(Math.round(Number($('v13Duration').value)||1000/Math.max(1,Number($('fps').value)||12)),20,60000);ensureSelected();});
+ $('v13ResetTimes').addEventListener('click',()=>{state.frames.forEach(f=>delete f.durationMs);stop();v12.stop();ensureSelected();});
+ $('fps').addEventListener('input',ensureSelected);
+ $('scrub').addEventListener('input',ensureSelected);
+ for(const id of ['btnPrev','btnNext','btnSort','btnReverse','btnClear','btnReset'])$(id)?.addEventListener('click',()=>{stop();if(id==='btnReset'){$('v13Align').value='legacy';$('v13Edge').value='off';$('v13EdgeAmount').value='65';$('v13Matte').value='#000000';$('v13EdgeValue').textContent='65%';$('v13Timing').checked=false;invalidate();}setTimeout(ensureSelected,0);});
+ $('frames').addEventListener('click',()=>setTimeout(ensureSelected,0));
+ $('frames').addEventListener('drop',()=>setTimeout(ensureSelected,0));
+ $('v13CompareOpen').addEventListener('click',()=>{if(!state.frames.length)return;paintCompare();dlg.showModal();});$('v13CompareClose').addEventListener('click',()=>dlg.close());
+ // Use capture at WINDOW to preempt the v1.2 player only while variable timing is enabled.
+ window.addEventListener('click',e=>{
+  const target=e.target.closest?.('button');if(!target)return;
+  if(target.id==='btnPlay'&&variableTiming()){e.preventDefault();e.stopImmediatePropagation();toggle();}
+  if(target.id==='unrealCSV'){e.preventDefault();e.stopImmediatePropagation();csv();}
+  if(target.id==='metaJSON'){e.preventDefault();e.stopImmediatePropagation();exportMetadata();}
+  if(['exportPng','exportTga','exportGif'].includes(target.id))stop();
+ },true);
+ window.addEventListener('keydown',e=>{if(!variableTiming()||e.key!==' '||e.repeat||['INPUT','SELECT','TEXTAREA','BUTTON'].includes(e.target.tagName)||document.querySelector('dialog[open]'))return;e.preventDefault();e.stopImmediatePropagation();toggle();},true);
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();});
+ ensureSelected();
+}
+window.GlueV13={sourceRect,process,recenter,decontaminate,maskCenter,frameMs,frameDelays,variableTiming,duration,csv,metadata,exportMetadata,timing};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+})();
 
 
-// Ensure the displayed preview FPS matches the restored default GIF FPS after reset.
-document.getElementById('btnReset')?.addEventListener('click',()=>window.__GlueV12Test?.setSpeed(1));
-</script>
-<script>
-/* maxVFX Glue Studio v1.3.0 — offline gzip loader; readable JS included in release ZIP. */
-(async()=>{try{const b=Uint8Array.from(atob("H4sIAAAAAAAC/607/ZPTRpa/81c0TkASluWPYQawRuYIkMAVX8UAYW8yC7LVshVkyZFkjx3PVJEL2WIDV5u9g4TsQorcZY9kj6qbI+Q2qcrVVe39J/kRe/6He6+79eX5gOQuZKRW9+vXr1+/z+52+QDpmsMrb14lb7l9SpaivuX4ZFDV5rQK+enmPWK6TtvrUi9SodjrmIRabUqigJoRrx2YgWM2XUrswOxSYvUDM3J8TyWh3w9atBzQsO9GpOV3ewAZ+p62hxBy3rZdx6OEDiPqhQCvA0SA3z0/pCHp+P6NkNh+QALqWTQov3X6TWJ6FpJWJV0amZYZmRo5UN4jy4rRGEv9kJIwCpxWJOl7Wr4XRgyjsep4lr+qXbuGE7xEQyS5WstXX6nWsEXf49jyXuy1trYXgJQx4vFdqtEg8ANZWp5l0go+K2V41Dj9XScMHa8tKXpAo37g6euCltcNxzIalt/qI9u0No1OuhSLb4xOW7JjKSppuWa3Z8gD1VSbMKWzZtTRYHFkU+VFx5Ob6kBR4umFkRlRA4fVWFElkQNAbWPcc80RFOq26YZUDUy7XlFdM4zgFdCu6XjYWFmHJY2iIDTG6zFKtoZnQ0O2VbsXAhGMJpmNH/h9z5LP9btNGsj2US1e6bOhsrZWrVQq5YTiqhqD9VhjTVHUWkVdAKAKkG/3vRb2TGTnEqNbVsacaWTv3tdlaVCd4/WSclRrdWjrBrWAnUnneHyZEc3ojfvP4j0q5pUBrWfmNEs8tHOis8OxricocFagCV9hyBAw9mTbaCQEsE5KHYalNihAbkZcYy7SViQIbakubZutUTIKZ8sx1EnkysAEeTQMQ+I9paPjISzxCP5W6wyD1nQioEBbdayoo3bylR3qtDvRep2PkSWka4Y3joNswgqimqmrakft+hZVxi4FuRsaFTUcwSPyI9OFt2usqpHRUQOjVFWb8ND3oO7KCA1w+mixo4+KRSWuAwT6cHFVH0LdGMwBFz7TwMGW5dGB1eJQOXCwOLeig0Kai4cVAIgcr08BL3GNRB1cdQiKZiRLF+B3lLZH6kjRm2l7E78BBWDF6SDnVhkTqCUp43BYNIYHTD0cFY0RvNnsioYJnCHwP3QKFiuKWAmv77qASnxtwYYrEQ7LDAUsSDjixfU61MtuMVDKNaiWo2ITSqB+GeYHtLUt64VNY23GjiukMxPGWmJSEQBI5f2toZGRfHm1VAUCSryDNlRUa5Rr7+TaGfdgAEBiGJX9+wEY3tuO44FlNzy6Si47XnT4OJoRah0LAnPECNZc6rWjjrKDoIjJWmCUf2WMitYIp8W+Fitra6zQMDo5sdhWtlI0V41h0RrGaK7GaK42jNUcGhIbQr9rJJIIgm7w4aGCdYNKBo3TXI78FS662GtFF3XFaqYWPpL6Wra+ltbPZetB9gE/l7xY5AAuJykWRcpNkHSw/qkctHzXD1TwhZzFY5hz/LG4w2o12wbrxWS440RgSpZr8/Oq+FupJ62tfhj5XekoOPOQnqJDmZskkBnoFJuktTXptQr7T1LqyxUV/q0kY90wYmrKYHgzAuDAyjmLGenQnaJxMF5EYR0c4EwZSBJqbMKMtMrBtTWzAYUjR+bTxSTlMrDMDErv08AXwYsTksj3SR8QspglwnIXadcyItTqACWtzuIcPISFErQLYMvgflEWJLU6K6VmexleB+RqyVSUsglzBiqZtSEpVFa30lrsdEMpxsgP3FC2rD1frczaJ/wfJM5huarOqfMrzOU4RoNBnPYieaCFrtOisqM6xZqiVhfAJVdyvq0X+C0ahnLPGVI35EKkMl/BLX7QbpoGb0yWkZk8vvgnISTMrr1v2xI3FAi0F6QGa/bvb2lsFc4KY4mVSl6GcaDElsVBRDrIsS5wLkqG4vOICUoiVWM7LwlkcT8nKEuhgZJm0x9KIEPZutQxsNknVjkhMYFWUj+AjbllcjwY3bFwbuBgMErTWiYEM1rLBdGUFT1Td4UGGAkXizpMIHJc+rakaJYT9syo1Tk5gJFkNKi8JDlerx9J6rjZb4Ikh/Uo6NP1fMjSNEN6DhYxCaxkPhoPTZYrK0c1D0rAGp4DXHvTdXpNiLxh3IBCEAlCU35HW/61tlJ8vaxK2Wr5aH352juhVlo5+o5VVLa0L//aLL1/rPR3ldKRFxs3S5tf/Mu10kq5rUrXAIrLY0U9OK9sM3guJDIHELQPI27dkFo1GvUSb9gPXOPyxTNaC/MRer75LsRO8M349IbrN+Vl7LeijrETciexJXEgznuKWFyWTIjcTa0TUNsA3FCEJMFzfdMycGw96db0rZFm9nqQnMgmdmnBlG7IWIII2x9QXFoaQTRI/X7EUhSkM6AD/0aGThgDFLLGwuJs/CXyGzme52A2X6myfAV9/SAXkQjdNAZas++41tkEEchoF7IOj0LQDJZc2jHrk/SuZnpOl8XWWj6sNWajXIaVKbWGeSHzArsZhSzwkvACxquouRjolTW8K4RcA5t+EpRLhsjbwTzRzuQtRpJC5PTCWVGzLMCAfT3O50g3u06YrQZRymR0tXuzuOIwRySDiTT/7dL5cxpmq17bsUdyut4qrqIKVjrV3aJ0zYwge9PeheRZUiWQOpA1RluZVeVEpxUOXk5HYsNhXCMzOFS7obEssU4wlMdfYPuiq+L9K/F+W7xPwbt/ye+doTZYI2mQFvtvY9KBdaeYKYVSzxn4DBMrIKp0MeADOA3PsEMpQ88KiB+o6nc9bAv81VBKQ4n3jKHRkApScYmxUh5mDFABjU2hIAH/ClLSAzcdYIY4T+1dH1IEQKqs6Oj5ReBHfJvxRXAuDT+WbQ10kA5Vm1lNeOH8tWFcGMUFnmyJD55kwVd/oPX5a8BfMRgUEyDGF4aSlxBnyiKV0ZWTTF7FOCUQZioE2kyN4GS2Clm6ojO+aL1+2JFNFkC8p6T8QQFLLbH0Tt+moMxF3odDvRO8A4KYl9rLHthWNzbrGkgmIIsARRmKEFphfBIZ/cguHQYZznpN6oX9gC5RFzhIrcQK2kZOT/lHKKBYrrjXTkUcPrmZeBPBz5hN6sJUtlZpSNJxCELQsFx/7fVxHm+xuk7KJK7NqdM6+etfoIXLw/r17JgnxKIlI6YVImtPdwQAACVfNChZNOg/kM2XMHlMcM3U5icwfXxr+uw5kJUJNXO0B9Tqg4LIpmqDQTSL6T7KLCVqRVHWu+H13NpA+N+DFeFbTZrYaTLYTpPeMr0WdY/FAsq4LAvIwLQhN0/KEGHHH/GOFFQBAc3IuwBIZ6Yl/fTpf0r5ZhCeYxHofbMPwZWEjqnkshVVpen9x5M7tyff3Js+ej796AGZfvF0+uGjvKHk68tJdGIJ84xtlpkJlhcLFgekLvqgsBX0m4CWumJRZdnZ5ylFT9nnYeXPDt5mBT9HcER7suevcuue5/+sYbeoC5adJynQpSSgcQ+QJSYV5cCgWmO9m2brhhb2KLX0DJQBvQAbBv/mwHRcdPoGw6q2+2ZgGeiRIVN0qZy0N4zZFd2/nwEvzuNeagJX2gKnZxdjVv2UrYIS685u5mCLWjFSILgGWzaLsGQkxOlpKwhpQN/rQ6A1I9G4EnmDFfnttktf7niheWbhxlyf0u1i3J3WRCWzBBzdwKGrbKcPjTbkKjO1fP9PSeJTIDsYcTliG9fo4EsMuoD+o7ACfIlD1mTGsTKjNOaEoUcD8JBd1G4NBEP+/1qSPWQXhf/oy/+Dwj/6cXrn4fTx/emTm1LO7LzqivZgXkAMHlrQX+iAxIYd36EHV2jB3GyIslYNe2ZfNq3gLjvp7AdOWwS756EISTLYezWAEIZXXuCJO2apXFj2Yo+1tb0AkhKCdXwoY1VnH3wYo8O/2pSzHZ17zcKkMzBXT3fNNpVjwnALJ021m6MISGDzYmkGZ6KttlCOQzFUS2M5LKsR4/GqUyxfDrcOCzaRjXoCo1G0lukXG1EVKMX7lBJTxZkhVms7t85ddG6BWY4h4+ZOfFjkRQGGvzulhiFtcQeux6CgQWYYYrxjSD3Toy7o7lyJlUTEycEcD9KuU5fOnjGuL1rOgLBuRkEgBOMcubTQWGwmDSCNhUZlYbHcbCx25hqYqG3+4+3pk9tk8u1zkOrFMtQulgFXYw9ZZEoQ97Ud6lqFxvSr30/vPCUAO3n8lEw2vpneebTIJZU4llGIsycY1u+Jsxh0YAWeQhUaL77fmH75XPTEOOcMa1gsc/DZbtwAwbh//GTy7fdk+s93N3//kLz49jFQgL2XWPtOvXH/Bfrev7t59y6ZPLs3fXgLfPYnk999TnAi9z/fqWO8SZN0frFxE3qQePozncucA1BgPEPm9RKmd03XLXX7HNs205g+ukkuBU6XTG99xT6fk+mPYGMA7Ivb00+fT34HREO/L8D8PLw1/eHB5E8/QukxmKDN+9+gebrzlZafllgfxDx99AAQTB9/MH0ECP94c/rkg+kXt178cBe6wyrce/HfAHP7ARvr4+8EtsVybycBmGw82Lz9dPLnj8iLZ//14lsg7cPfTj/8IBagvChg0r1FEiBhB0b8/dPpH74h0/u3yeb9r3ElhWAAOjG5HRcV8rAbIEjPbqIMTJ58tfkxzOzxwxf/sbHjcuLWc6Gx+WgD0b9SF74fHRMK3CVA0i4DbiMCGZUMTK9NS5ASATc4V8HvJSzi+xLAW8ZDkLX7uOaLfj8Cy5Xl5RWkrdBYmN8HA7PWZLxFFvplgQVWgltUgoICAX9lFCoFPJw3CtUKlMR8F+YLu2p+jJltxZzyXYsGBdJxLIt6jZglTBLyhDDwmAa22Z+MKHbyCy/XGiFpnD1MqIUacd3k4kImf/568k8Pp599Mr31cPIEqkHm//DN5JNERbjE/PUvsRhsbADiRHHYeuaRfHyPXHzrDRj3OxiQ6eWj55N//x71ZfPT36aYhbpA/BDh1iyfufAa53vUi+fPAQoZO+17lhmAVfzpsyfxpMokFoNnGy++/ZFMfrj14rtPwGSzzo3rmX3pXsdEf51sfrPYC685gFfRuLtQdL4xZtq4xxx7jtTjQgRDg1dwTQwu65fQI7FKSbTt4IwSuMQdhUCC125s3rs1eXwbbNEEjQhLpCC0erFxC1SJQ+TFkJ3Us7sd7MpHC/RFiJoQLmxHex8vAN9LjDU40ZNYxrehUSgo5FbJKqYJfSGlePoIKL71ePPDR5v3H0xvfT/9wz0gGnoJkhtoKn7zD3w6JK8Qcb4ey4THNimFYtZizWQ3GgosNUM1TXTm8FyhQbrhz5hMXigvUrF5HO4kk0zvIDYGvvGEH+wyiuWbF5YmXz4k0+e3oWLz83uJQC6yLhmmp1sICY4KkszgUpK3V/W8VHAGxr7izkOCt3WQuZ9t8DZUENzzLB9fugJKy1zlrNpDH9TkKhBBJne+Bh+qkul3D6e/uUtqUIezwjl++Siv0Nfj+K+2hEnsBdz96zC7hzvDXJ+YYKfKxLJd1MheQDEnYh3ZLZNEKwFdKQJbHOIGr8RO1VkvhT3zaKkbUiQB0gHc8tbQnHjx9Z74kGCGBMtt76jNlmO6Pl4hAiAN1isT257gTaxlRsn5BStasjIgu+h6DN6BvKTAoszt7RoPNbc1mceRW9tJ5OTOv8FKkf/5LBU+Jk0gS3kMXGG3FTBc2p1obgcOQjCUTUE3i5Vbpjcww3iQOGNCZLwlpiPu+ezB5F+fJhPdgiDJrrZiYM/r258HAeczshaNcOdkJ8ONrRKeAsI7v4+nJbnEuOkHIM4l5pbrr83Nz1sLc3udLoqm6UXrKSTREl81ZklYHUKHfXrXDIARpcjv1Rd6Qw7P5HGMmz9ttkdYf616qFarUZ0PVq/2hiT0XcciOGB14aBoKAWm5fTDehUA9J5pWXiVrDoH0FXAreOOF2TrdVwivW32OFyGgEM5ArizUbWsMRzHOGyXDnV25lOCsLAb1vkJrP4uhHyOPSq1OKvqYNFbtNSk0SqlHh+0AoNi99JqAJ/42DIo4d5rLLjaPASKYK/nKCHMIwhOHj6IE4FZ8Fy2PoffW5l1sLmwsNDUc4yt1Cq1I7oYiB6x5+xZbh7KMHM+xyHSG3Pu1SszxDHXEpN/xG7VWvO6DSwphc77tF6tZdGwDuj5xnkIWBngEZtf7RAyzR/QwHb91ToPGXUUyVJSSV3X6YVOqLNAvcQYX/f8lL95IzTehj21hbkFK8+eg7VqrZmwx7IP2YdmhW0uRype7ToyP1hVjxwGmhWd1x6pVLIieTief9bS5WVrd0HaKnl5fCji47y8w6ME8FAD3BFnLfWqHRD444J5cJYq7NMAYzJG0eITqWzVosPbdSPcJGU1Xcim2Y98xi/xvVAbdHSfnTqXbCeqsysXjqc7uL9S4jdskWmsX7o2scUB8bXm5rMNrGMdAwgzAFpgldCcHZy3aFt9be7gwYX5GqnN71O5C2X+EL8VdbZL6Rf04V2yYIegW4zi0C7D7NYnOz2mHzUQJ4KPbEvPDx0MC+sVUlErBA2Nig9SYkX2JJX1v+lSUAE5FdkFFE5lvFWAdpSZbRUqkW7UbnbilHgWFO/YAzF3Et+t434IxMW3yXJ6bK4mh/TqzLm7ml7oWlFex7vJGgzLTi7OOBDqQkyRnGCwu9cQHIHHNIzZ8/v0RJ8lxDN7clvP+/m2cFHaJ+mzKGNkmbQW4LmRyl044Dj2pjfV9OwVHH093S6MLxdvM7lWB7NwMTuxF5/Zlt96SpNizZzzvQTvy+4K7LLTnL3DsNMN7e2PHXe+qj2zN7/l1vZuk07Tle2njQcNCTczM44vZ9hGwwLEESXZ424Mi16Z9Zz2HeU030/0Ecd3P6fXVoXC8wlII0BroHQO5JuXljBvYKWLFNxnSPnHcbz2FdcD02INO/pStrHpJ2qR9FfGubsw4hwyuQmzVTX4vTt9J+0zpIX5uFVc6owb4iud+u56DQj2xTCJjon7++KcOK+SmXtSeYbj5n6yvkxiXiZeu6F6OSIr8HuvjCe/dfRSuX+JtuePm1jyFnb81bO+ZbpcynNDstTrZWPyJBEAZUZzuUwuQ6LaMnswIiVmRN4+fe7E+bfxEiwkwuCCIhJ1KGE/ZsHwA4JP33NH/Jg3/Z0PP0zDq7TUwwpL20PE7bQdyaHAgeSefwTxLI0MyHdYIc66j2qyxNNFnm/v5c3pMRaeb4kuiRKwo8H9+2fvpSljqmFyD7ScoLbZdyO0HcyInO4y3xxRyO56ZptffVD0+AQXT2C3DNRnN1mOL12Rfj5idiFrW6x4CQc3RX4B0tmLZzH+ZYm3XAClU0X5UttMym85trSiOV7L7Vs0TMlRlOTEeV3F418s7bioN+gIr0XyZWV3EGfYv7ZGNQBCL0wk/AhoD/LetbVl6fS5C5cvAT1LJ8+cPI6FSyevXjp28eQxKL5x+dIlYEeGwERGIrONWx2Aeacjbh4hLfugjCuSEkvNLxeDhA3JgFsZMXBCp+m4TjSa9expWMZClJi9zJpt8WF71vcIXvPLnXPGOP0pkCouZ6vxDWQ1d2VaTX8JooozeDXzUyU1vzRq8vM8EEs1vvmn5sVJ5Rq+zn4Ol0wED7BHS+wnZ7CseCWWWfZduHPi/FnhE84ANLUklXkadex7kDbyKy9880ycxQIjFHz+Ly88A+6VOAAA"),c=>c.charCodeAt(0));const js=await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('gzip'))).text();for(let i=0;i<300;i++){if(window.__GlueV12Test&&window.__GlueV11Test)break;await new Promise(resolve=>requestAnimationFrame(resolve));}if(!window.__GlueV12Test||!window.__GlueV11Test)throw Error('v1.1/v1.2 initialization timed out');(0,eval)(js);}catch(e){console.error('[Glue Studio v1.3]',e)}})();
+/* maxVFX Glue Studio v1.4.0 — GIF -> full-frame sprite sheet, PNG sequence ZIP and portable .glueproj.
+ * 100% local/offline; GIF palette/disposal/deinterlace decoded by gif-decoder.js; ZIP STORE by zip-codec.js.
+ */
+(async()=>{'use strict';
+const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+async function ready(){for(let i=0;i<360;i++){if(window.__GlueTest&&window.GlueV13&&window.__GlueV11Test&&window.__GlueV12Test&&window.GlueGIFDecode&&window.GlueZIP)return;await new Promise(resolve=>setTimeout(resolve,16));}throw Error('Glue Studio v1.4 종속 모듈을 불러오지 못했습니다.');}
+try{await ready();}catch(err){console.error(err);return;}
+const core=window.__GlueTest,state=core.state,oldPivot=window.__GlueV11Test.v11;
+const numeric=new Intl.Collator(undefined,{numeric:true,sensitivity:'base'});
+const confIds=['tileW','tileH','columns','gap','padding','fit','trim','power2','alphaMode','keyColor','tolerance','feather','cutoff','bleed','gifW','gifH','fps','gifThreshold','gifDither','gifTransparent','gifBg','v13Align','v13Edge','v13EdgeAmount','v13Matte','v13Timing','previewSpeed','pivotX','pivotY','channelMode','gifImportLayout'];
+let processing=false;
+const api={passthrough:false,importFiles,importGIF,exportSequence,saveProject,loadProject};
+window.GlueV14=api;
+function notify(msg,error=false){core.toast(msg,error);if(error)console.error('[GlueStudio v1.4]',msg);}
+function filename(){return(state.frames[0]?.name||'maxVFX_Flipbook').replace(/\.[^.]+$/,'').replace(/(?:[_\s.-]?\d+)+$/,'').replace(/[^a-zA-Z0-9가-힣_-]/g,'_').slice(0,44)||'maxVFX_Flipbook';}
+function save(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),20000);}
+async function yieldFrame(){return new Promise(resolve=>requestAnimationFrame(resolve));}
+function textJson(obj){return JSON.stringify(obj,null,2);}
+function makeThumb(bitmap){const canvas=document.createElement('canvas');canvas.width=100;canvas.height=96;const c=canvas.getContext('2d');const k=Math.min(100/bitmap.width,96/bitmap.height);c.drawImage(bitmap,(100-bitmap.width*k)/2,(96-bitmap.height*k)/2,bitmap.width*k,bitmap.height*k);return canvas.toDataURL('image/png');}
+function configureFirst(w,h,count){if(state.frames.length!==0)return;
+ if($('tileW').value==='256'&&$('tileH').value==='256'){$('tileW').value=Math.min(w,4096);$('tileH').value=Math.min(h,4096);}
+ if($('gifW').value==='256'&&$('gifH').value==='256'){$('gifW').value=Math.min(w,2048);$('gifH').value=Math.min(h,2048);}
+ if($('gifImportLayout').value==='auto')$('columns').value=Math.min(16,Math.ceil(Math.sqrt(count)));
+}
+async function importGIF(file){
+ if(!/\.gif$/i.test(file.name)&&file.type!=='image/gif')throw Error('GIF 형식만 선택할 수 있습니다.');
+ if(file.size>80*1024*1024)throw Error('GIF 파일은 최대 80MB까지 지원합니다.');
+ const decoded=window.GlueGIFDecode.decode(await file.arrayBuffer(),{maxFrames:512,maxPixels:32000000});
+ if(state.frames.length+decoded.frames.length>512)throw Error('프레임 수가 512개를 초과합니다. 기존 프레임을 삭제하거나 다른 GIF를 사용하세요.');
+ const first=state.frames.length===0;
+ const staging=[];
+ try{
+  for(let i=0;i<decoded.frames.length;i++){
+   const src=decoded.frames[i];const bitmap=await createImageBitmap(new ImageData(src.rgba,decoded.width,decoded.height));
+   staging.push({id:state.nextId++,name:`${file.name.replace(/\.gif$/i,'')}_${String(i+1).padStart(4,'0')}.png`,bitmap,thumb:makeThumb(bitmap),durationMs:src.durationMs});
+   if(i%12===0){$('busyDetail').textContent=`GIF 해제 ${i+1} / ${decoded.frames.length}`;await yieldFrame();}
+  }
+ }catch(err){for(const f of staging)f.bitmap.close?.();throw err;}
+ if(first)configureFirst(decoded.width,decoded.height,decoded.frames.length);
+ state.frames.push(...staging);state.selected=first?0:state.frames.length-staging.length;
+ $('v13Timing').checked=true;
+ core.renderFrames();core.invalidate();$('scrub').dispatchEvent(new Event('input',{bubbles:true}));
+ if(first)document.querySelector('[data-view="anim"]').click();
+ return decoded.frames.length;
+}
+async function importFiles(input){
+ if(processing||state.busy)return;
+ const files=Array.from(input||[]).sort((a,b)=>numeric.compare(a.name,b.name));
+ if(!files.length)return;
+ if(files.length===1&&/\.glueproj$/i.test(files[0].name))return loadProject(files[0]);
+ processing=true;
+ let n=0,failed=[];
+ try{
+  for(const file of files){
+   if(/\.gif$/i.test(file.name)||file.type==='image/gif'){
+    try{core.busy('GIF 전체 프레임 가져오기',file.name);await yieldFrame();n+=await importGIF(file);}catch(e){failed.push(`${file.name}: ${e.message}`);}finally{core.unbusy();}
+   }else if(file.type.startsWith('image/')||/\.(png|jpe?g|webp|bmp)$/i.test(file.name)){
+    const before=state.frames.length;api.passthrough=true;
+    try{await core.addFiles([file]);n+=state.frames.length-before;}finally{api.passthrough=false;}
+   }else failed.push(`${file.name}: 지원되지 않는 입력 형식`);
+  }
+  if(n)notify(`${n}개 프레임 추가 완료${failed.length?' · 일부 파일 실패':''}`,!!failed.length);
+  if(failed.length){console.warn('GIF import failures:',failed);notify(failed.slice(0,2).join(' / '),true);}
+ }finally{processing=false;core.unbusy();}
+}
+function imageCanvas(bitmap){const canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height;canvas.getContext('2d',{willReadFrequently:true}).drawImage(bitmap,0,0);return canvas;}
+async function exportSequence(){if(!state.frames.length||state.busy||processing)return;processing=true;core.busy('PNG 프레임 ZIP 생성','처리된 프레임을 추출하는 중');await yieldFrame();
+ try{const conf=core.readConf(),count=state.frames.length;
+  if(count*conf.tileW*conf.tileH>32000000)throw Error('시퀀스 ZIP은 전체 3,200만 픽셀 이하로 제한합니다.');
+  const manifest=window.GlueV13.metadata();
+  const entries=[{name:'atlas.json',data:textJson(manifest)}];
+  for(let i=0;i<count;i++){
+   const bytes=core.buildFrame(state.frames[i],conf),blob=await GlueExport.encodePNG(bytes,conf.tileW,conf.tileH),png=new Uint8Array(await blob.arrayBuffer());
+   entries.push({name:`frames/frame_${String(i).padStart(4,'0')}.png`,data:png});
+   if(i%5===0){$('busyDetail').textContent=`PNG ${i+1} / ${count}`;await yieldFrame();}
+  }
+  const out=GlueZIP.pack(entries);save(out,`${filename()}_PNG_Sequence.zip`);
+  notify(`PNG 시퀀스 ${count}장 저장 (${(out.size/1048576).toFixed(1)}MB)`);
+ }catch(err){notify('PNG 시퀀스 저장 실패: '+err.message,true);}finally{processing=false;core.unbusy();}
+}
+function getSettings(){const fields={};for(const id of confIds){const e=$(id);if(e)fields[id]=e.type==='checkbox'?e.checked:e.value;}
+ return {fields,pivot:{default:oldPivot.defaultPivot,overrides:state.frames.map(f=>oldPivot.pivots.get(f.id)||null)},selected:state.selected};
+}
+async function saveProject(){if(!state.frames.length||state.busy||processing)return notify('먼저 이미지를 추가하세요.',true);
+ processing=true;core.busy('프로젝트 저장','원본 이미지와 편집 설정을 묶는 중');await yieldFrame();
+ try{const settings=getSettings(),entries=[],frames=[];
+  let total=0;
+  for(let i=0;i<state.frames.length;i++){
+   const frame=state.frames[i],name=`frames/${String(i).padStart(4,'0')}.png`,cv=imageCanvas(frame.bitmap),data=cv.getContext('2d',{willReadFrequently:true}).getImageData(0,0,cv.width,cv.height).data;
+   const png=new Uint8Array(await (await GlueExport.encodePNG(data,cv.width,cv.height)).arrayBuffer());total+=png.byteLength;
+   if(total>250*1024*1024)throw Error('프로젝트 이미지 데이터가 250MB를 초과했습니다.');
+   entries.push({name,data:png});frames.push({path:name,name:frame.name,durationMs:frame.durationMs??null});
+   if(i%5===0){$('busyDetail').textContent=`원본 프레임 ${i+1} / ${state.frames.length}`;await yieldFrame();}
+  }
+  const manifest={schema:'maxvfx.glue-studio.project/1',version:'1.4.0',createdAt:new Date().toISOString(),settings,frames};
+  entries.unshift({name:'project.json',data:textJson(manifest)});
+  const zip=GlueZIP.pack(entries);save(zip,`${filename()}.glueproj`);
+  notify(`프로젝트 저장 완료 · ${state.frames.length}프레임 / ${(zip.size/1048576).toFixed(1)}MB`);
+ }catch(err){notify('프로젝트 저장 실패: '+err.message,true);}finally{processing=false;core.unbusy();}
+}
+function restoreFields(fields){if(!fields||typeof fields!=='object')return;
+ for(const id of confIds){if(!(id in fields))continue;const el=$(id);if(!el)continue;
+  if(el.type==='checkbox')el.checked=fields[id]===true;
+  else if(el.tagName==='SELECT'){const value=String(fields[id]);if([...el.options].some(op=>op.value===value))el.value=value;}
+  else if(el.type==='number'||el.type==='range'){const n=Number(fields[id]);if(Number.isFinite(n))el.value=clamp(n,Number(el.min)||0,Number(el.max)||100000);}
+  else if(el.type==='color'){if(/^#[\da-fA-F]{6}$/.test(fields[id]))el.value=fields[id];}
+ }
+ $('toleranceVal').textContent=$('tolerance').value;$('featherVal').textContent=$('feather').value;$('cutoffVal').textContent=$('cutoff').value;
+ $('v13EdgeValue').textContent=$('v13EdgeAmount').value+'%';$('v13MatteHolder').hidden=$('v13Edge').value!=='custom';
+ $('chromaControls').hidden=$('alphaMode').value!=='chroma';$('alphaControls').hidden=$('alphaMode').value==='opaque';$('gifBgField').hidden=$('gifTransparent').checked;
+ window.__GlueV12Test.setSpeed(Number($('previewSpeed').value));
+}
+async function loadProject(file){if(!file||state.busy||processing)return;if(file.size>300*1024*1024)return notify('프로젝트 파일 크기는 최대 300MB입니다.',true);
+ if(state.frames.length&&!confirm('현재 프레임과 설정을 프로젝트로 교체할까요? 저장하지 않은 작업은 사라집니다.'))return;
+ processing=true;core.busy('프로젝트 불러오기','파일 구조와 CRC 검증 중');await yieldFrame();const staging=[];
+ try{
+  const files=GlueZIP.unpack(await file.arrayBuffer(),{maxBytes:270000000,maxEntries:600});
+  const json=files.get('project.json');if(!json)throw Error('project.json이 없습니다. .glueproj 파일을 선택하세요.');
+  const manifest=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(json));
+  if(manifest.schema!=='maxvfx.glue-studio.project/1'||!Array.isArray(manifest.frames)||!manifest.frames.length||manifest.frames.length>512)throw Error('지원하지 않는 프로젝트 버전 또는 프레임 개수입니다.');
+  let total=0;const used=new Set();
+  for(let i=0;i<manifest.frames.length;i++){
+   const f=manifest.frames[i];if(typeof f.path!=='string'||!/^frames\/\d{4}\.png$/.test(f.path)||used.has(f.path)||!files.has(f.path))throw Error('프로젝트 프레임 경로 오류');used.add(f.path);
+   const bytes=files.get(f.path);const bmp=await createImageBitmap(new Blob([bytes],{type:'image/png'}));
+   if(!bmp.width||!bmp.height||bmp.width>4096||bmp.height>4096||(total+=bmp.width*bmp.height)>32000000){bmp.close?.();throw Error('프로젝트 해상도 제한을 초과했습니다.');}
+   staging.push({id:state.nextId++,name:String(f.name||`frame_${i}`).slice(0,220),bitmap:bmp,thumb:makeThumb(bmp),durationMs:Number.isFinite(+f.durationMs)&&f.durationMs!==null?clamp(+f.durationMs,20,60000):undefined});
+   if(i%8===0){$('busyDetail').textContent=`프로젝트 프레임 ${i+1} / ${manifest.frames.length}`;await yieldFrame();}
+  }
+  core.stopPlay();window.__GlueV12Test.stop();if(window.GlueV13?.timing){window.GlueV13.timing.playing=false;cancelAnimationFrame(window.GlueV13.timing.raf);}
+  core.disposeAll();state.frames.push(...staging);state.selected=clamp(Number(manifest.settings?.selected)||0,0,state.frames.length-1);
+  restoreFields(manifest.settings?.fields||{});
+  oldPivot.pivots.clear();const pivot=manifest.settings?.pivot;
+  if(pivot?.default&&Number.isFinite(+pivot.default.x)&&Number.isFinite(+pivot.default.y))oldPivot.defaultPivot={x:clamp(+pivot.default.x,0,1),y:clamp(+pivot.default.y,0,1)};
+  $('pivotX').value=oldPivot.defaultPivot.x;$('pivotY').value=oldPivot.defaultPivot.y;
+  pivot?.overrides?.forEach((p,i)=>{if(state.frames[i]&&p&&Number.isFinite(+p.x)&&Number.isFinite(+p.y))oldPivot.pivots.set(state.frames[i].id,{x:clamp(+p.x,0,1),y:clamp(+p.y,0,1)});});
+  core.renderFrames();core.invalidate();$('scrub').dispatchEvent(new Event('input',{bubbles:true}));
+  notify(`프로젝트 복원 완료 · ${state.frames.length}프레임`);
+ }catch(err){for(const f of staging)if(!state.frames.includes(f))f.bitmap.close?.();notify('프로젝트 불러오기 실패: '+err.message,true);}finally{processing=false;core.unbusy();}
+}
+function mount(){
+ $('fileInput').accept='image/png,image/jpeg,image/webp,image/bmp,image/gif,.bmp,.gif,.glueproj';
+ const gifButton=document.createElement('button');gifButton.id='v14GIFImport';gifButton.type='button';gifButton.className='secondary';gifButton.textContent='◩ GIF → 시트';
+ $('btnImportSheet').after(gifButton);
+ const gifInput=document.createElement('input');gifInput.type='file';gifInput.accept='.gif,image/gif';gifInput.hidden=true;document.body.append(gifInput);
+ gifButton.addEventListener('click',()=>gifInput.click());gifInput.addEventListener('change',e=>{importFiles(e.target.files);e.target.value='';});
+ const option=document.createElement('label');option.className='field';option.innerHTML='<span>GIF 그리드 설정</span><select id="gifImportLayout"><option value="auto">프레임 수에 맞게 자동 열 구성</option><option value="keep">기존 열 수 유지</option></select>';
+ gifButton.closest('.panel').append(option);
+ const note=gifButton.closest('.panel').querySelector('.small-muted');if(note)note.textContent='PNG · JPG · WEBP · BMP · GIF 전체 프레임 / .glueproj 프로젝트 · 드래그 앤 드롭';
+ const exportPanel=$('exportPng').closest('.export-panel');
+ const newBar=document.createElement('section');newBar.className='v14-panel';newBar.innerHTML='<div><small>WORKFLOW & PORTABLE PROJECT</small><strong>프레임 시퀀스 및 프로젝트 관리</strong></div><div class="v14-actions"><button id="v14Sequence" class="small-btn">↓ PNG 시퀀스 ZIP</button><button id="v14Save" class="small-btn">↓ 프로젝트 저장</button><button id="v14Load" class="small-btn">↑ 프로젝트 불러오기</button></div><p class="small-muted">.glueproj 프로젝트에는 원본 프레임·피벗·알파·재생시간·시트 설정이 포함됩니다. ZIP 시퀀스는 현재 보정 결과가 PNG로 저장됩니다.</p>';
+ exportPanel.after(newBar);
+ const input=document.createElement('input');input.type='file';input.accept='.glueproj';input.hidden=true;document.body.append(input);
+ $('v14Sequence').addEventListener('click',exportSequence);$('v14Save').addEventListener('click',saveProject);$('v14Load').addEventListener('click',()=>input.click());input.addEventListener('change',e=>{loadProject(e.target.files?.[0]).catch(err=>notify(err.message,true));e.target.value='';});
+ const style=document.createElement('style');style.textContent='.upload-choices #v14GIFImport{grid-column:1/-1}.v14-panel{background:#17252c;border:1px solid #427269;border-radius:12px;padding:17px;margin-top:10px;display:grid;gap:12px}.v14-panel>div:first-child{display:grid;gap:5px}.v14-panel small{font-size:10px;letter-spacing:1.6px;color:#78ddbf}.v14-actions{display:flex;flex-wrap:wrap;gap:9px}.v14-actions>button{min-height:40px;flex:1;white-space:nowrap}.v14-panel p{margin:0}#v14GIFImport{white-space:nowrap}@media(max-width:560px){.v14-actions{display:grid}.v14-actions>button{width:100%}}';document.head.append(style);
+ $('helpDialog').querySelector('ol')?.insertAdjacentHTML('beforeend','<li>GIF 파일을 넣으면 전체 프레임과 시간 정보를 추출합니다. PNG/TGA 시트 저장으로 GIF를 스프라이트 시트로 변환할 수 있습니다.</li><li>프로젝트 파일(.glueproj)을 저장해 다른 PC에서도 같은 편집을 계속하거나, PNG 시퀀스 ZIP으로 프레임을 따로 저장할 수 있습니다.</li>');
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+})();
 
 </script>
 </body></html>
