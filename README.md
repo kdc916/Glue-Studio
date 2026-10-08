@@ -1,11 +1,11 @@
-# maxVFX Glue Studio v1.0.0
+# maxVFX Glue Studio v1.1.0
 
 **GlueIT 방식의 스프라이트 시트 편집기를 현대적인 로컬 웹 앱으로 재구현한 독립 프로젝트**입니다. 설치, 로그인, 서버 통신 없이 브라우저에서 이미지 시퀀스를 시트로 묶거나 GIF 애니메이션으로 저장할 수 있습니다.
 
 ## 바로 실행
 
 - **가장 쉬운 방법:** `maxVFX_Glue_Studio_Standalone.html` 더블클릭 → Chrome/Edge로 열기.
-- **웹 호스팅 / 개발용:** `index.html`, `styles.css`, `app.js`, `gif-codec.js`, `export-codec.js`를 같은 폴더에 배치하여 `index.html` 열기. GitHub Pages 또는 일반 정적 호스팅 가능.
+- **웹 호스팅 / 개발용:** `index.html`, `styles.css`, `app.js`, `gif-codec.js`, `export-codec.js`, `vfx-addon.js`를 같은 폴더에 배치하여 `index.html` 열기. GitHub Pages 또는 일반 정적 호스팅 가능.
 - 외부 라이브러리와 CDN이 없으며 모든 소스 이미지는 로컬 브라우저 메모리에서 처리됩니다.
 
 ## 기본 제작 순서
@@ -62,3 +62,10 @@ HANDOFF.md                         <- 개발계획, 구현/검증/히스토리 �
 ```
 
 > GlueIT 원본 EXE/코드는 패키지에 포함하지 않았습니다. 기존 GlueIT의 UI 흐름을 참조해 새로 작성한 독립 구현입니다.
+
+## v1.1.0 기능
+- **채널 PNG/TGA**: RGB Only(RGB 유지·불투명), Alpha Only(알파 흑백·불투명) 별도 출력.
+- **Pivot Editor**: (0,0) 좌하단, (1,1) 우상단 정규화 좌표; 공통 피벗 및 프레임별 피벗 지원.
+- **Atlas JSON**: 타일 픽셀/UV, Unity 하단 원점 좌표, 피벗, FPS, 패딩, 간격 기록.
+- **Unity/Unreal**: JSON은 데이터 교환용이며 실제 에디터 자동 슬라이싱·Niagara 피벗 반영은 별도 임포터가 필요합니다.
+- **Offline**: Chrome/Edge에서 모든 처리는 로컬 수행. GitHub Pages용 v1.1 확장 모듈은 오프라인 압축 로더(CompressionStream API 역변환)로 제공하며, 개발용 원본은 ZIP에 동봉됩니다.
