@@ -7,7 +7,7 @@ async function ready(){for(let i=0;i<360;i++){if(window.__GlueTest&&window.GlueV
 try{await ready();}catch(err){console.error(err);return;}
 const core=window.__GlueTest,state=core.state,oldPivot=window.__GlueV11Test.v11;
 const numeric=new Intl.Collator(undefined,{numeric:true,sensitivity:'base'});
-const confIds=['tileW','tileH','columns','gap','padding','fit','trim','power2','alphaMode','keyColor','tolerance','feather','cutoff','bleed','gifW','gifH','fps','gifThreshold','gifDither','gifTransparent','gifBg','v13Align','v13Edge','v13EdgeAmount','v13Matte','v13Timing','previewSpeed','pivotX','pivotY','channelMode','gifImportLayout'];
+const confIds=['tileW','tileH','columns','gap','padding','fit','trim','power2','alphaMode','keyColor','tolerance','feather','cutoff','bleed','gifW','gifH','fps','gifThreshold','gifDither','gifTransparent','gifBg','v13Align','v13Edge','v13EdgeAmount','v13Matte','v13Timing','previewSpeed','pivotX','pivotY','channelMode','gifImportLayout','gifImportMode'];
 let processing=false;
 const api={passthrough:false,importFiles,importGIF,exportSequence,saveProject,loadProject};
 window.GlueV14=api;
@@ -17,17 +17,37 @@ function save(blob,name){const url=URL.createObjectURL(blob),a=document.createEl
 async function yieldFrame(){return new Promise(resolve=>requestAnimationFrame(resolve));}
 function textJson(obj){return JSON.stringify(obj,null,2);}
 function makeThumb(bitmap){const canvas=document.createElement('canvas');canvas.width=100;canvas.height=96;const c=canvas.getContext('2d');const k=Math.min(100/bitmap.width,96/bitmap.height);c.drawImage(bitmap,(100-bitmap.width*k)/2,(96-bitmap.height*k)/2,bitmap.width*k,bitmap.height*k);return canvas.toDataURL('image/png');}
-function configureFirst(w,h,count){if(state.frames.length!==0)return;
- if($('tileW').value==='256'&&$('tileH').value==='256'){$('tileW').value=Math.min(w,4096);$('tileH').value=Math.min(h,4096);}
- if($('gifW').value==='256'&&$('gifH').value==='256'){$('gifW').value=Math.min(w,2048);$('gifH').value=Math.min(h,2048);}
+function configureFirst(w,h,count,force=false){if(!force&&state.frames.length!==0)return;
+ if(force||($('tileW').value==='256'&&$('tileH').value==='256')){$('tileW').value=Math.min(w,4096);$('tileH').value=Math.min(h,4096);}
+ if(force||($('gifW').value==='256'&&$('gifH').value==='256')){$('gifW').value=Math.min(w,2048);$('gifH').value=Math.min(h,2048);}
  if($('gifImportLayout').value==='auto')$('columns').value=Math.min(16,Math.ceil(Math.sqrt(count)));
 }
-async function importGIF(file){
+
+function resetForNewGif(){
+ core.stopPlay();window.__GlueV12Test?.stop?.();
+ if(window.GlueV13?.timing){const t=window.GlueV13.timing;t.playing=false;cancelAnimationFrame(t.raf);}
+ core.disposeAll();
+ oldPivot.pivots.clear();oldPivot.defaultPivot={x:0.5,y:0.5};oldPivot.editing=false;
+ for(const id of ['pivotX','pivotY'])if($(id))$(id).value='0.5';
+ if($('pivotEdit'))$('pivotEdit').checked=false;
+ $('stage')?.classList.remove('pivot-edit');
+ if($('pivotStatus'))$('pivotStatus').textContent='공통 피벗: (0.50, 0.50)';
+ for(const [id,v] of Object.entries({gap:'0',padding:'0',fit:'contain',alphaMode:'off',tolerance:'0',feather:'0',cutoff:'0',v13Align:'legacy',v13Edge:'off',v13EdgeAmount:'65',v13Matte:'#000000'}))if($(id))$(id).value=v;
+ for(const id of ['trim','power2','bleed'])if($(id))$(id).checked=false;
+ for(const id of ['tolerance','feather','cutoff'])if($(id+'Val'))$(id+'Val').textContent=$(id).value;
+ if($('v13EdgeValue'))$('v13EdgeValue').textContent='65%';
+ if($('v13MatteHolder'))$('v13MatteHolder').hidden=true;
+ if($('alphaControls'))$('alphaControls').hidden=false;
+ if($('chromaControls'))$('chromaControls').hidden=true;
+ window.__GlueV12Test?.setSpeed?.(1);
+}
+
+async function importGIF(file,{replace=false}={}){
  if(!/\.gif$/i.test(file.name)&&file.type!=='image/gif')throw Error('GIF 형식만 선택할 수 있습니다.');
  if(file.size>80*1024*1024)throw Error('GIF 파일은 최대 80MB까지 지원합니다.');
  const decoded=window.GlueGIFDecode.decode(await file.arrayBuffer(),{maxFrames:512,maxPixels:32000000});
- if(state.frames.length+decoded.frames.length>512)throw Error('프레임 수가 512개를 초과합니다. 기존 프레임을 삭제하거나 다른 GIF를 사용하세요.');
- const first=state.frames.length===0;
+ if(!replace&&state.frames.length+decoded.frames.length>512)throw Error('프레임 수가 512개를 초과합니다. 새 작업 모드를 사용하거나 이전 프레임을 삭제하세요.');
+ const first=replace||state.frames.length===0;
  const staging=[];
  try{
   for(let i=0;i<decoded.frames.length;i++){
@@ -36,10 +56,14 @@ async function importGIF(file){
    if(i%12===0){$('busyDetail').textContent=`GIF 해제 ${i+1} / ${decoded.frames.length}`;await yieldFrame();}
   }
  }catch(err){for(const f of staging)f.bitmap.close?.();throw err;}
- if(first)configureFirst(decoded.width,decoded.height,decoded.frames.length);
- state.frames.push(...staging);state.selected=first?0:state.frames.length-staging.length;
+ if(replace)resetForNewGif();
+ if(first)configureFirst(decoded.width,decoded.height,decoded.frames.length,replace);
+ const insertAt=state.frames.length;
+ state.frames.push(...staging);state.selected=first?0:insertAt;
  $('v13Timing').checked=true;
- core.renderFrames();core.invalidate();$('scrub').dispatchEvent(new Event('input',{bubbles:true}));
+ core.renderFrames();core.invalidate();$('scrub').value=state.selected;
+ $('scrub').dispatchEvent(new Event('input',{bubbles:true}));
+ window.GlueV15?.history?.resetHistory?.();
  if(first)document.querySelector('[data-view="anim"]').click();
  return decoded.frames.length;
 }
@@ -48,18 +72,22 @@ async function importFiles(input){
  const files=Array.from(input||[]).sort((a,b)=>numeric.compare(a.name,b.name));
  if(!files.length)return;
  if(files.length===1&&/\.glueproj$/i.test(files[0].name))return loadProject(files[0]);
+ const gifFiles=files.filter(file=>/\.gif$/i.test(file.name)||file.type==='image/gif');
+ const replaceMode=gifFiles.length>0&&$('gifImportMode')?.value!=='append';
+ if(replaceMode&&state.frames.length&&!confirm('새 GIF로 작업을 시작할까요?\n기존 프레임 및 편집 설정이 교체됩니다. 저장하지 않은 작업은 사라집니다.'))return;
+ const ordered=replaceMode?[...gifFiles,...files.filter(file=>!gifFiles.includes(file))]:files;
  processing=true;
- let n=0,failed=[];
+ let n=0,failed=[],replacePending=replaceMode;
  try{
-  for(const file of files){
+  for(const file of ordered){
    if(/\.gif$/i.test(file.name)||file.type==='image/gif'){
-    try{core.busy('GIF 전체 프레임 가져오기',file.name);await yieldFrame();n+=await importGIF(file);}catch(e){failed.push(`${file.name}: ${e.message}`);}finally{core.unbusy();}
+    try{core.busy('GIF 전체 프레임 가져오기',file.name);await yieldFrame();const loaded=await importGIF(file,{replace:replacePending});n+=loaded;if(replacePending&&loaded)replacePending=false;}catch(e){failed.push(`${file.name}: ${e.message}`);}finally{core.unbusy();}
    }else if(file.type.startsWith('image/')||/\.(png|jpe?g|webp|bmp)$/i.test(file.name)){
     const before=state.frames.length;api.passthrough=true;
     try{await core.addFiles([file]);n+=state.frames.length-before;}finally{api.passthrough=false;}
    }else failed.push(`${file.name}: 지원되지 않는 입력 형식`);
   }
-  if(n)notify(`${n}개 프레임 추가 완료${failed.length?' · 일부 파일 실패':''}`,!!failed.length);
+  if(n)notify(`${replaceMode?'새 GIF 작업 · ':'기존 작업에 추가 · '}${n}개 프레임 로드 완료${failed.length?' · 일부 파일 실패':''}`,!!failed.length);
   if(failed.length){console.warn('GIF import failures:',failed);notify(failed.slice(0,2).join(' / '),true);}
  }finally{processing=false;core.unbusy();}
 }
@@ -143,8 +171,15 @@ function mount(){
  $('btnImportSheet').after(gifButton);
  const gifInput=document.createElement('input');gifInput.type='file';gifInput.accept='.gif,image/gif';gifInput.hidden=true;document.body.append(gifInput);
  gifButton.addEventListener('click',()=>gifInput.click());gifInput.addEventListener('change',e=>{importFiles(e.target.files);e.target.value='';});
+ const panel=gifButton.closest('.panel');
+ const mode=document.createElement('label');mode.className='field';
+ mode.innerHTML='<span>GIF 불러오기 방식</span><select id="gifImportMode"><option value="replace">새 작업 시작 · 기존 프레임 교체 (기본)</option><option value="append">기존 프레임 뒤에 이어 붙이기</option></select>';
+ panel.append(mode);
+ const hint=document.createElement('p');hint.className='small-muted';hint.id='gifImportModeHelp';
+ hint.textContent='새 작업은 이전 시퀀스·피벗·알파 보정을 초기화합니다. 필요한 경우 .glueproj로 먼저 저장하세요.';
+ panel.append(hint);
  const option=document.createElement('label');option.className='field';option.innerHTML='<span>GIF 그리드 설정</span><select id="gifImportLayout"><option value="auto">프레임 수에 맞게 자동 열 구성</option><option value="keep">기존 열 수 유지</option></select>';
- gifButton.closest('.panel').append(option);
+ panel.append(option);
  const note=gifButton.closest('.panel').querySelector('.small-muted');if(note)note.textContent='PNG · JPG · WEBP · BMP · GIF 전체 프레임 / .glueproj 프로젝트 · 드래그 앤 드롭';
  const exportPanel=$('exportPng').closest('.export-panel');
  const newBar=document.createElement('section');newBar.className='v14-panel';newBar.innerHTML='<div><small>WORKFLOW & PORTABLE PROJECT</small><strong>프레임 시퀀스 및 프로젝트 관리</strong></div><div class="v14-actions"><button id="v14Sequence" class="small-btn">↓ PNG 시퀀스 ZIP</button><button id="v14Save" class="small-btn">↓ 프로젝트 저장</button><button id="v14Load" class="small-btn">↑ 프로젝트 불러오기</button></div><p class="small-muted">.glueproj 프로젝트에는 원본 프레임·피벗·알파·재생시간·시트 설정이 포함됩니다. ZIP 시퀀스는 현재 보정 결과가 PNG로 저장됩니다.</p>';
@@ -152,7 +187,7 @@ function mount(){
  const input=document.createElement('input');input.type='file';input.accept='.glueproj';input.hidden=true;document.body.append(input);
  $('v14Sequence').addEventListener('click',exportSequence);$('v14Save').addEventListener('click',saveProject);$('v14Load').addEventListener('click',()=>input.click());input.addEventListener('change',e=>{loadProject(e.target.files?.[0]).catch(err=>notify(err.message,true));e.target.value='';});
  const style=document.createElement('style');style.textContent='.upload-choices #v14GIFImport{grid-column:1/-1}.v14-panel{background:#17252c;border:1px solid #427269;border-radius:12px;padding:17px;margin-top:10px;display:grid;gap:12px}.v14-panel>div:first-child{display:grid;gap:5px}.v14-panel small{font-size:10px;letter-spacing:1.6px;color:#78ddbf}.v14-actions{display:flex;flex-wrap:wrap;gap:9px}.v14-actions>button{min-height:40px;flex:1;white-space:nowrap}.v14-panel p{margin:0}#v14GIFImport{white-space:nowrap}@media(max-width:560px){.v14-actions{display:grid}.v14-actions>button{width:100%}}';document.head.append(style);
- $('helpDialog').querySelector('ol')?.insertAdjacentHTML('beforeend','<li>GIF 파일을 넣으면 전체 프레임과 시간 정보를 추출합니다. PNG/TGA 시트 저장으로 GIF를 스프라이트 시트로 변환할 수 있습니다.</li><li>프로젝트 파일(.glueproj)을 저장해 다른 PC에서도 같은 편집을 계속하거나, PNG 시퀀스 ZIP으로 프레임을 따로 저장할 수 있습니다.</li>');
+ $('helpDialog').querySelector('ol')?.insertAdjacentHTML('beforeend','<li>GIF를 새로 불러오면 이전 프레임을 교체합니다. 추가하려면 불러오기 방식을 변경하세요. PNG/TGA 시트 저장으로 GIF를 스프라이트 시트로 변환할 수 있습니다.</li><li>프로젝트 파일(.glueproj)을 저장해 다른 PC에서도 같은 편집을 계속하거나, PNG 시퀀스 ZIP으로 프레임을 따로 저장할 수 있습니다.</li>');
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 })();

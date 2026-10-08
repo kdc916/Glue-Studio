@@ -11,7 +11,7 @@ if (!(window.__GlueTest && window.GlueV14 && window.GlueV13 && window.__GlueV11T
 const core=window.__GlueTest, state=core.state, pivot=window.__GlueV11Test.v11;
 const configIds=['tileW','tileH','columns','gap','padding','fit','trim','power2','alphaMode','keyColor','tolerance','feather','cutoff','bleed',
 'gifW','gifH','fps','gifThreshold','gifDither','gifTransparent','gifBg','v13Align','v13Edge','v13EdgeAmount','v13Matte','v13Timing',
-'previewSpeed','pivotX','pivotY','channelMode','gifImportLayout'];
+'previewSpeed','pivotX','pivotY','channelMode','gifImportLayout','gifImportMode'];
 const interactive=new Set([...configIds,'v13Duration']);
 const mutationButtons=new Set(['btnSort','btnReverse','btnReset','pivotAll','pivotSingle','pivotClear','v13ResetTimes']);
 const maxHistory=35;

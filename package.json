@@ -1,6 +1,6 @@
 {
   "name": "maxvfx-glue-studio",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "private": true,
   "scripts": {
     "test": "node tests/test_v160_static.cjs",

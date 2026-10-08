@@ -278,3 +278,12 @@ Previous files retained; frame imports, PNG/TGA/GIF outputs, PixEffect alpha pro
 - Smoke tests: choose PNG/GIF, GIF->PNG & GIF export, IndexedDB restore, Node GIF/ZIP corruption tests. Ensure Actions completion before confirming success.
 
 CONFIRMED PRODUCTION BUG: `app.js` ended with literal `</script><script>` (not JavaScript), so browser raised SyntaxError Unexpected token '<'. This was the direct reason file selection did not initialize. GitHub commit a1f25ed removed it; v1.7 static regression gates parse all shipped JS files. Use version cache query to defeat stale GitHub Pages assets.
+
+
+## v1.7.1 — GIF 새 작업 기본 모드
+
+- GIF 입력 시 기존 프레임을 이어 붙이는 대신 **새 작업으로 교체**합니다. 이어 붙이기는 선택 옵션으로 유지했습니다.
+- 기존 작업이 있을 때 교체 확인을 표시합니다. 취소, 파일 디코딩 실패 등에서는 기존 프레임과 설정을 보존합니다.
+- 새 GIF를 적용하면 이전 Pivot, Trim, Alpha 보정, 여백, 재생 배속, 실행 취소 이력을 초기화합니다. GIF 크기와 프레임 수로 타일 및 그리드를 다시 계산하고 프레임별 재생시간은 유지합니다.
+- 여러 GIF를 한 번에 추가하는 경우 첫 GIF에서만 교체하고 뒤의 파일은 새 작업에 추가합니다.
+- 브라우저 테스트: PNG 2프레임 → GIF 6프레임 교체, 12프레임 이어 붙이기, 취소, 잘못된 GIF 데이터 보존, PNG 저장 확인.
