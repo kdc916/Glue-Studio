@@ -1,0 +1,80 @@
+name: Windows Desktop Installer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'package.json'
+      - 'index.html'
+      - 'styles.css'
+      - 'app.js'
+      - '*-codec.js'
+      - 'v*-addon.js'
+      - 'vfx-addon.js'
+      - '.github/workflows/windows-desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-installer:
+    name: Build and publish Windows 64-bit installer
+    runs-on: windows-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Set up Python for icon generation
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate ICO icon from reproducible source
+        run: python desktop/generate_icon.py
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --package-lock=false
+      - name: Validate desktop resource manifest and security
+        run: npm run test:desktop
+      - name: Run Glue Studio unit regressions
+        run: npm test
+      - name: Create NSIS 64-bit Windows installer
+        run: npm run dist:windows
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Validate installer exists and print SHA-256
+        run: |
+          $setup = Get-ChildItem 'dist/windows' -Filter '*Setup*.exe' | Select-Object -First 1
+          if (-not $setup) { throw 'Windows NSIS setup EXE was not produced.' }
+          if ($setup.Length -lt 10000000) { throw "Setup file unexpectedly small: $($setup.Length) bytes" }
+          Get-FileHash -Path $setup.FullName -Algorithm SHA256 | Format-List
+          Write-Output "SETUP_EXE=$($setup.Name)"
+      - name: Upload setup EXE as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: maxVFX-Glue-Studio-Windows-Setup-v1.7.4
+          path: dist/windows/*Setup*.exe
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
+      - name: Publish downloadable setup EXE to GitHub Releases
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: windows-v1.7.4
+          target_commitish: ${{ github.sha }}
+          name: maxVFX Glue Studio v1.7.4 — Windows Installer
+          body: |
+            Windows 10/11 x64 offline desktop build.
+            Installs to a user-selected folder, with start menu and desktop shortcuts.
+            Unsigned build: Windows SmartScreen may report an unknown publisher.
+          files: dist/windows/*Setup*.exe
+          fail_on_unmatched_files: true
+          overwrite_files: true

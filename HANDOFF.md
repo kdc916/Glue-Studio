@@ -291,3 +291,8 @@ CONFIRMED PRODUCTION BUG: `app.js` ended with literal `</script><script>` (not J
 
 ## v1.7.4 Cumulative Handoff
 GitHub v1.7.1 baseline plus v1.7.2 new project and v1.7.3 static sequence replace requirements. v14 previously passed one image per call to core.addFiles. v1.7.4 batches static images and handles GIF group before one static batch. Shared importMode selects replace(default) or append. v14.resetWorkspace clears frames, alpha, pivot and timers; core stages bitmaps before old project disposal. New project optionally calls native input chooser immediately. v15/v16 field lists include importMode; standalone inline code mirrors modules. Regression: PNG3 -> GIF6 -> PNG3, append, cancel, damaged file, new project picker.
+
+
+## Windows Desktop Port — 2026-10-08
+
+Electron 44.7.0 기반 NSIS Windows x64 Installer. New files: desktop/main.cjs (secure gluestudio://app/ origin, sandbox, native save dialog and keyboard menu); desktop/generate_icon.py (7-size ICO via Python stdlib); desktop/test-desktop.cjs (desktop validation); WINDOWS_INSTALL.md; .github/workflows/windows-desktop.yml. package.json includes electron-builder config and explicit app file whitelist. Windows runner generates icon, npm test, electron-builder NSIS, SHA256, Actions artifact and public GitHub Release windows-v1.7.4. Existing GitHub Pages and web version stay intact. Unsigned publisher: SmartScreen may warn. Windows GUI E2E and large texture benchmarking remain to be done.

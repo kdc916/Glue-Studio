@@ -157,3 +157,8 @@ engine/Unreal5_8/GlueStudio_Flipbook.ush — Unreal Material UV Helper
 
 ## v1.7.4 통합 불러오기
 GIF 및 PNG/JPG/WEBP/BMP에 공통 **새 작업 / 이어 붙이기** 선택 메뉴 적용. 여러 PNG를 하나의 배치로 디코딩 후 단 한 번 교체. 기존 작업 교체 확인, 오류 시 원본 보존, 파일 선택이 이어지는 새로 만들기 버튼, 기존 PNG/TGA/GIF 저장과 알파 기능 유지. 자동 브라우저 테스트 추가.
+
+
+## Windows 설치형 데스크톱 앱
+
+[Windows 10/11 x64 설치 파일 다운로드](https://github.com/kdc916/Glue-Studio/releases/tag/windows-v1.7.4) · [설치 가이드](WINDOWS_INSTALL.md). Electron 오프라인 실행, 시작 메뉴/바탕화면 바로가기, NSIS 제거 지원. 미서명 빌드이므로 SmartScreen 확인이 필요합니다.
