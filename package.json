@@ -4,9 +4,69 @@
   "private": true,
   "scripts": {
     "test": "node tests/test_v160_static.cjs",
-    "test:e2e": "playwright test -c playwright.config.cjs"
+    "test:e2e": "playwright test -c playwright.config.cjs",
+    "desktop:start": "electron .",
+    "test:desktop": "node desktop/test-desktop.cjs",
+    "dist:windows": "electron-builder --win nsis --x64 --publish never"
   },
   "devDependencies": {
-    "@playwright/test": "^1.57.0"
+    "@playwright/test": "^1.57.0",
+    "electron": "44.7.0",
+    "electron-builder": "^26.0.0"
+  },
+  "main": "desktop/main.cjs",
+  "productName": "maxVFX Glue Studio",
+  "author": "maxVFX",
+  "description": "Offline Windows sprite-sheet, flipbook and GIF editor",
+  "build": {
+    "appId": "com.maxvfx.gluestudio",
+    "productName": "maxVFX Glue Studio",
+    "copyright": "Copyright © 2026 maxVFX",
+    "asar": true,
+    "directories": {
+      "output": "dist/windows"
+    },
+    "files": [
+      "desktop/main.cjs",
+      "desktop/assets/icon.ico",
+      "index.html",
+      "styles.css",
+      "app.js",
+      "gif-codec.js",
+      "gif-decoder.js",
+      "export-codec.js",
+      "zip-codec.js",
+      "vfx-addon.js",
+      "v12-addon.js",
+      "v13-addon.js",
+      "v14-addon.js",
+      "v15-addon.js",
+      "v16-addon.js",
+      "v16-worker-source.js",
+      "v17-addon.js",
+      "v17-worker-source.js"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "desktop/assets/icon.ico",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "maxVFX Glue Studio",
+      "artifactName": "maxVFX-Glue-Studio-Setup-${version}-${arch}.${ext}"
+    },
+    "publish": null
   }
 }
