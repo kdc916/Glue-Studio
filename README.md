@@ -1,11 +1,11 @@
-# maxVFX Glue Studio v1.1.0
+# maxVFX Glue Studio v1.2.0
 
 **GlueIT 방식의 스프라이트 시트 편집기를 현대적인 로컬 웹 앱으로 재구현한 독립 프로젝트**입니다. 설치, 로그인, 서버 통신 없이 브라우저에서 이미지 시퀀스를 시트로 묶거나 GIF 애니메이션으로 저장할 수 있습니다.
 
 ## 바로 실행
 
 - **가장 쉬운 방법:** `maxVFX_Glue_Studio_Standalone.html` 더블클릭 → Chrome/Edge로 열기.
-- **웹 호스팅 / 개발용:** `index.html`, `styles.css`, `app.js`, `gif-codec.js`, `export-codec.js`, `vfx-addon.js`를 같은 폴더에 배치하여 `index.html` 열기. GitHub Pages 또는 일반 정적 호스팅 가능.
+- **웹 호스팅 / 개발용:** `index.html`, `styles.css`, `app.js`, `gif-codec.js`, `export-codec.js`, `vfx-addon.js`, `v12-addon.js`를 같은 폴더에 배치하여 `index.html` 열기. GitHub Pages 또는 일반 정적 호스팅 가능.
 - 외부 라이브러리와 CDN이 없으며 모든 소스 이미지는 로컬 브라우저 메모리에서 처리됩니다.
 
 ## 기본 제작 순서
@@ -69,3 +69,22 @@ HANDOFF.md                         <- 개발계획, 구현/검증/히스토리 �
 - **Atlas JSON**: 타일 픽셀/UV, Unity 하단 원점 좌표, 피벗, FPS, 패딩, 간격 기록.
 - **Unity/Unreal**: JSON은 데이터 교환용이며 실제 에디터 자동 슬라이싱·Niagara 피벗 반영은 별도 임포터가 필요합니다.
 - **Offline**: Chrome/Edge에서 모든 처리는 로컬 수행. GitHub Pages용 v1.1 확장 모듈은 오프라인 압축 로더(CompressionStream API 역변환)로 제공하며, 개발용 원본은 ZIP에 동봉됩니다.
+
+
+## v1.2.0 — 미리보기 배속 / Unity·Unreal 연동
+
+- **미리보기 재생속도**: 0.10×~4.00× 슬라이더 및 0.25× / 0.5× / 1× / 2× / 4× 프리셋. 재생 중 변경 가능.
+- **GIF FPS 분리**: 미리보기 배속은 GIF FPS를 바꾸지 않습니다. 필요한 경우 `GIF FPS 반영` 버튼으로 현재 실효 FPS(1~50으로 제한)를 GIF FPS 필드에 복사합니다.
+- **Unreal CSV**: JSON과 동일한 Rect / UV / Pivot / FPS / 시트 크기 / 열·행 데이터 저장.
+- **Unity 6 Slice**: `engine/Unity6/GlueStudioAtlasImporter.cs`를 프로젝트 `Assets/Editor/`에 복사하고 `Tools > maxVFX Glue Studio > Import Atlas JSON`를 사용하세요. `2D Sprite` 패키지 필요.
+- **Unreal 5.8 UV**: `engine/Unreal5_8/GlueStudio_Flipbook.ush`는 Padding/Gap/POT 반영을 위한 Material UV 계산을 제공합니다. Niagara/Paper2D 에셋 자동 생성 기능은 아닙니다.
+
+Unity 6·Unreal 5.8 에디터 런타임 테스트는 수행되지 않았습니다. 각 `engine/` 폴더 README를 확인하세요.
+
+### v1.2 신규 구성
+
+```text
+v12-addon.js                        — 재생속도 및 Unreal CSV UI (CDN 미사용)
+engine/Unity6/GlueStudioAtlasImporter.cs — Unity Sprite Editor JSON Import
+engine/Unreal5_8/GlueStudio_Flipbook.ush — Unreal Material UV Helper
+```
