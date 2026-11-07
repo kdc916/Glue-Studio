@@ -16,7 +16,6 @@
     "electron-builder": "^26.0.0"
   },
   "main": "desktop/main.cjs",
-      "desktop/save-location.cjs",
   "productName": "maxVFX Glue Studio",
   "author": "maxVFX",
   "description": "Offline Windows sprite-sheet, flipbook and GIF editor",
