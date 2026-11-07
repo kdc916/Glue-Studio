@@ -1,12 +1,12 @@
 {
   "name": "maxvfx-glue-studio",
-  "version": "1.7.5",
+  "version": "1.7.6",
   "private": true,
   "scripts": {
     "test": "node tests/test_v160_static.cjs",
     "test:e2e": "playwright test -c playwright.config.cjs",
     "desktop:start": "electron .",
-    "test:desktop": "node desktop/test-desktop.cjs && node desktop/test-export-layout.cjs",
+    "test:desktop": "node desktop/test-desktop.cjs && node desktop/test-save-location.cjs && node desktop/test-export-layout.cjs",
     "dist:windows": "electron-builder --win nsis --x64 --publish never",
     "test:export": "node desktop/test-export-layout.cjs"
   },
@@ -16,6 +16,7 @@
     "electron-builder": "^26.0.0"
   },
   "main": "desktop/main.cjs",
+      "desktop/save-location.cjs",
   "productName": "maxVFX Glue Studio",
   "author": "maxVFX",
   "description": "Offline Windows sprite-sheet, flipbook and GIF editor",
@@ -29,6 +30,7 @@
     },
     "files": [
       "desktop/main.cjs",
+      "desktop/save-location.cjs",
       "desktop/assets/icon.ico",
       "index.html",
       "styles.css",
