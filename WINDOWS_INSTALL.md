@@ -1,9 +1,9 @@
-# maxVFX Glue Studio v1.7.5 — Windows 설치 가이드
+# maxVFX Glue Studio v1.7.6 — Windows 설치 가이드
 
 대상은 Windows 10/11, 64-bit (x64)입니다. 기존 HTML 기능을 인터넷 없이 데스크톱 앱으로 실행합니다.
 
 ## 설치 방법
-1. [Windows Release 페이지](https://github.com/kdc916/Glue-Studio/releases/tag/windows-v1.7.5)에서 maxVFX-Glue-Studio-Setup-1.7.5-x64.exe를 다운로드합니다.
+1. [Windows Release 페이지](https://github.com/kdc916/Glue-Studio/releases/tag/windows-v1.7.6)에서 maxVFX-Glue-Studio-Setup-1.7.5-x64.exe를 다운로드합니다.
 2. 설치 마법사에서 설치 위치를 지정합니다.
 3. 바탕화면 또는 시작 메뉴의 maxVFX Glue Studio로 실행합니다.
 4. 제거: Windows 설정 > 앱 > 설치된 앱 > maxVFX Glue Studio.
@@ -15,7 +15,12 @@
 - Ctrl + O: 이미지 시퀀스
 - 파일 > GIF 불러오기: 움직이는 GIF의 전체 프레임
 - Ctrl + Shift + S: 프로젝트 (.glueproj) 저장
-- PNG/TGA/GIF/ZIP 출력: Windows 파일 저장 창에서 저장 위치를 선택
+- PNG/TGA/GIF/ZIP/프로젝트 저장: **첫 저장만** Windows 파일 저장 창에서 위치를 선택합니다.
+- 두 번째 저장부터는 마지막 저장 폴더에 자동 저장하며, 동명 파일이 있으면 (1), (2) 접미사로 보존합니다.
+- 저장 완료 후 Windows 탐색기에서 새 파일이 선택된 상태로 폴더를 엽니다.
+- 파일 > 저장 폴더 변경…: 자동 저장 대상 폴더를 직접 바꿉니다.
+- 파일 > 마지막 저장 폴더 열기: 현재 저장 폴더를 탐색기에서 엽니다.
+- 저장 폴더 설정은 프로그램을 종료해도 유지됩니다. 폴더가 사라지면 저장 위치 선택 창으로 되돌아갑니다.
 
 Windows SmartScreen은 코드 서명 인증서가 없는 설치 프로그램에 '알 수 없는 게시자' 경고를 표시할 수 있습니다. 다운로드 출처가 위 GitHub 저장소인지, Actions SHA-256과 파일이 일치하는지 확인한 후 실행하세요.
 
