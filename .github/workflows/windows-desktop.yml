@@ -59,7 +59,7 @@ jobs:
       - name: Upload setup EXE as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: maxVFX-Glue-Studio-Windows-Setup-v1.7.5
+          name: maxVFX-Glue-Studio-Windows-Setup-v1.7.6
           path: dist/windows/*Setup*.exe
           if-no-files-found: error
           compression-level: 0
@@ -68,11 +68,12 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: windows-v1.7.5
+          tag_name: windows-v1.7.6
           target_commitish: ${{ github.sha }}
-          name: maxVFX Glue Studio v1.7.5 — Windows Installer
+          name: maxVFX Glue Studio v1.7.6 — Windows Installer
           body: |
             Windows 10/11 x64 offline desktop build.
+            Automatically saves to the last used export folder and reveals completed exports in Explorer.
             Installs to a user-selected folder, with start menu and desktop shortcuts.
             Unsigned build: Windows SmartScreen may report an unknown publisher.
           files: dist/windows/*Setup*.exe
