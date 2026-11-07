@@ -1,6 +1,9 @@
 'use strict';
 const {app,BrowserWindow,Menu,dialog,protocol,shell,session}=require('electron');
 const fs=require('node:fs/promises'),path=require('node:path');
+const {safeFileName,usableDirectory,pickAvailablePath,readSavedDirectory,saveDirectory}=require('./save-location.cjs');
+let lastExportDirectory=null;
+const pendingExportPaths=new Set();
 const SCHEME='gluestudio',ROOT=path.resolve(__dirname,'..'),URL_HOME='gluestudio://app/index.html';
 protocol.registerSchemesAsPrivileged([{scheme:SCHEME,privileges:{standard:true,secure:true,supportFetchAPI:true,stream:true}}]);
 const MIME={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.png':'image/png','.ico':'image/x-icon'};
@@ -21,12 +24,30 @@ function click(id){
  const w=BrowserWindow.getFocusedWindow();
  if(w&&!w.isDestroyed())w.webContents.executeJavaScript('document.getElementById('+JSON.stringify(id)+')?.click()').catch(console.error);
 }
+function rememberExportDirectory(directory){
+ try{lastExportDirectory=saveDirectory(app.getPath('userData'),directory);}
+ catch(error){console.error('[Glue Studio] Could not remember output folder:',error);lastExportDirectory=usableDirectory(directory);}
+}
+async function chooseExportDirectory(){
+ const current=BrowserWindow.getFocusedWindow()||BrowserWindow.getAllWindows()[0];
+ const options={title:'maxVFX Glue Studio - 저장 폴더 변경',defaultPath:usableDirectory(lastExportDirectory)||app.getPath('downloads'),properties:['openDirectory','createDirectory']};
+ const selection=current?await dialog.showOpenDialog(current,options):await dialog.showOpenDialog(options);
+ if(!selection.canceled&&selection.filePaths[0])rememberExportDirectory(selection.filePaths[0]);
+}
+function openExportDirectory(){
+ const directory=usableDirectory(lastExportDirectory);
+ if(!directory){dialog.showMessageBox({type:'info',title:'저장 폴더',message:'저장된 폴더가 없습니다. 먼저 파일을 저장하거나 저장 폴더를 지정해 주세요.'});return;}
+ shell.openPath(directory).then(error=>{if(error)dialog.showErrorBox('폴더 열기 실패',error);}).catch(console.error);
+}
 function makeMenu(){return Menu.buildFromTemplate([
  {label:'파일',submenu:[
   {label:'새 프로젝트',accelerator:'Ctrl+N',click:()=>click('btnNewProject')},
   {label:'시퀀스 불러오기',accelerator:'Ctrl+O',click:()=>click('btnImport')},
   {label:'GIF 불러오기',click:()=>click('v14GIFImport')},
   {label:'프로젝트 저장',accelerator:'Ctrl+Shift+S',click:()=>click('v14Save')},
+  {type:'separator'},
+  {label:'저장 폴더 변경…',click:()=>chooseExportDirectory().catch(console.error)},
+  {label:'마지막 저장 폴더 열기',click:openExportDirectory},
   {type:'separator'},{role:'quit',label:'종료'}
  ]},
  {label:'보기',submenu:[{role:'reload'},{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'togglefullscreen'}]},
@@ -55,13 +76,38 @@ function createWindow(){
 }
 function handleDownloads(){
  session.defaultSession.on('will-download',(_event,item)=>{
-  const name=path.basename(item.getFilename()||'GlueStudio_Output.png').replace(/[<>:"/\\|?*\x00-\x1f]/g,'_');
-  item.setSaveDialogOptions({title:'maxVFX Glue Studio - 내보내기',defaultPath:path.join(app.getPath('downloads'),name)});
-  item.on('done',(_e,status)=>{if(status!=='completed'&&status!=='cancelled')console.error('Export error',status,name);});
+  const name=safeFileName(item.getFilename()||'GlueStudio_Output.png');
+  const directory=usableDirectory(lastExportDirectory);
+  let assignedPath=null;
+  if(directory){
+   try{
+    assignedPath=pickAvailablePath(directory,name,pendingExportPaths);
+    pendingExportPaths.add(assignedPath);
+    item.setSavePath(assignedPath);
+   }catch(error){
+    if(assignedPath)pendingExportPaths.delete(assignedPath);
+    assignedPath=null;
+    console.error('[Glue Studio] Automatic export path unavailable:',error);
+   }
+  }
+  if(!assignedPath){
+   item.setSaveDialogOptions({title:'maxVFX Glue Studio - 첫 저장 위치 선택',defaultPath:path.join(app.getPath('downloads'),name)});
+  }
+  item.on('done',(_e,status)=>{
+   if(assignedPath)pendingExportPaths.delete(assignedPath);
+   if(status==='completed'){
+    const savedPath=item.getSavePath();
+    if(savedPath){
+     rememberExportDirectory(path.dirname(savedPath));
+     shell.showItemInFolder(savedPath);
+    }
+   }else if(status!=='cancelled')console.error('[Glue Studio] Export error',status,name);
+  });
  });
 }
 app.setAppUserModelId('com.maxvfx.gluestudio');
 app.whenReady().then(()=>{
+ lastExportDirectory=readSavedDirectory(app.getPath('userData'));
  protocol.handle(SCHEME,serve);
  session.defaultSession.setPermissionRequestHandler((_webContents,_perm,done)=>done(false));
  handleDownloads();Menu.setApplicationMenu(makeMenu());createWindow();
