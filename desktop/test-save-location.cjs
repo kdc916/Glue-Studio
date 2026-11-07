@@ -1,0 +1,30 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const os=require('node:os');
+const path=require('node:path');
+const {safeFileName,usableDirectory,pickAvailablePath,readSavedDirectory,saveDirectory}=require('./save-location.cjs');
+const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'glue-export-location-'));
+try{
+  const output=path.join(tmp,'output'),prefs=path.join(tmp,'user-data');
+  fs.mkdirSync(output);
+  assert.equal(safeFileName('../effect?.png'),'effect_.png');
+  assert.equal(safeFileName('CON.txt'),'_CON.txt');
+  assert.equal(safeFileName(''), 'GlueStudio_Output.png');
+  assert.equal(usableDirectory(path.join(tmp,'missing')),null);
+  assert.equal(readSavedDirectory(prefs),null);
+  assert.equal(saveDirectory(prefs,output),output);
+  assert.equal(readSavedDirectory(prefs),output);
+  assert.equal(pickAvailablePath(output,'fire.png'),path.join(output,'fire.png'));
+  fs.writeFileSync(path.join(output,'fire.png'),'original');
+  assert.equal(pickAvailablePath(output,'fire.png'),path.join(output,'fire (1).png'));
+  const pending=new Set([path.join(output,'fire (1).png')]);
+  assert.equal(pickAvailablePath(output,'fire.png',pending),path.join(output,'fire (2).png'));
+  assert.equal(fs.readFileSync(path.join(output,'fire.png'),'utf8'),'original');
+  fs.writeFileSync(path.join(prefs,'export-location.json'),'invalid json');
+  assert.equal(readSavedDirectory(prefs),null);
+  saveDirectory(prefs,output);
+  fs.rmSync(output,{recursive:true});
+  assert.equal(readSavedDirectory(prefs),null);
+  console.log('PASS persistent output folder, safe names, collision-free export and missing-directory fallback');
+}finally{fs.rmSync(tmp,{recursive:true,force:true});}
