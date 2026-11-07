@@ -4,8 +4,9 @@ const root=path.resolve(__dirname,'..'),p=JSON.parse(fs.readFileSync(path.join(r
 const main=fs.readFileSync(path.join(root,'desktop/main.cjs'),'utf8');
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 a.equal(p.main,'desktop/main.cjs');a.equal(p.build.win.target[0].target,'nsis');a.equal(p.build.win.target[0].arch[0],'x64');
-for(const r of [/nodeIntegration:\s*false/,/contextIsolation:\s*true/,/sandbox:\s*true/,/webSecurity:\s*true/,/registerSchemesAsPrivileged/,/will-download/])a.match(main,r);
+for(const r of [/nodeIntegration:\s*false/,/contextIsolation:\s*true/,/sandbox:\s*true/,/webSecurity:\s*true/,/registerSchemesAsPrivileged/,/will-download/,/showItemInFolder/,/readSavedDirectory/])a.match(main,r);
 for(const m of html.matchAll(/(?:src|href)="([^"?#]+\.[^"?#]+)(?:\?[^"]*)?"/g))a(p.build.files.includes(m[1]),'not packaged: '+m[1]);
+a(p.build.files.includes('desktop/save-location.cjs'),'save-location helper must be packaged');
 for(const f of p.build.files)a(fs.existsSync(path.join(root,f)),'missing '+f);
 a.equal(fs.readFileSync(path.join(root,'desktop/assets/icon.ico')).toString('hex',0,4),'00000100');
 new (require('node:vm').Script)(main,{filename:'main.cjs'});
