@@ -1,4 +1,4 @@
-# maxVFX Glue Studio v1.7.4
+# maxVFX Glue Studio v1.7.6
 
 **GlueIT 방식의 스프라이트 시트 편집기를 현대적인 로컬 웹 앱으로 재구현한 독립 프로젝트**입니다. 설치, 로그인, 서버 통신 없이 브라우저에서 이미지 시퀀스를 시트로 묶거나 GIF 애니메이션으로 저장할 수 있습니다.
 
@@ -161,7 +161,7 @@ GIF 및 PNG/JPG/WEBP/BMP에 공통 **새 작업 / 이어 붙이기** 선택 메�
 
 ## Windows 설치형 데스크톱 앱
 
-[Windows 10/11 x64 설치 파일 다운로드](https://github.com/kdc916/Glue-Studio/releases/tag/windows-v1.7.5) · [설치 가이드](WINDOWS_INSTALL.md). Electron 오프라인 실행, 시작 메뉴/바탕화면 바로가기, NSIS 제거 지원. 미서명 빌드이므로 SmartScreen 확인이 필요합니다.
+[Windows 10/11 x64 설치 파일 다운로드](https://github.com/kdc916/Glue-Studio/releases/tag/windows-v1.7.6) · [설치 가이드](WINDOWS_INSTALL.md). Electron 오프라인 실행, 시작 메뉴/바탕화면 바로가기, NSIS 제거 지원. 미서명 빌드이므로 SmartScreen 확인이 필요합니다.
 
 
 ## v1.7.5 — Export Center 반응형 패치 (2026-10-08)
