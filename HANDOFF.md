@@ -304,3 +304,13 @@ Electron 44.7.0 기반 NSIS Windows x64 Installer. New files: desktop/main.cjs (
 - 창 너비 1250px 이하에서는 세로로 영역 재배치, 480px 이하에서는 버튼을 1열로 표시합니다.
 - 동일한 CSS와 HTML이 GitHub Pages, 단독 실행 HTML, Electron Windows 설치형에 반영됩니다.
 - Chromium 1920/1536/1366/1200/1024/800/600/390/320px 폭 레이아웃 검사 통과. Windows 실제 설치 GUI 테스트는 Windows Actions 빌드와 분리하여 별도 검증이 필요합니다.
+
+
+## v1.7.6 — Windows 저장 위치 기억 / 자동 저장 / 탐색기 열기 (2026-11-07)
+- Electron Windows 설치형: 최초 저장 시 기존 저장 대화상자를 사용하고, 저장 성공 후 출력 폴더를 `userData/export-location.json`에 기억.
+- 이후 PNG/TGA/GIF/ZIP/.glueproj 등 DownloadItem 기반 출력은 같은 폴더에 저장 창 없이 자동 저장. 파일명 중복은 `name (1).png` 식으로 회피하며, 진행 중인 병렬 내보내기도 중복 방지.
+- 저장 완료 시 `shell.showItemInFolder()`로 Windows 탐색기에 해당 파일 표시. 실패/취소 시 폴더 갱신과 탐색기 호출 없음.
+- 파일 메뉴에서 '저장 폴더 변경…', '마지막 저장 폴더 열기' 제공. 삭제된 저장 폴더는 저장 창으로 안전하게 폴백.
+- `desktop/save-location.cjs`에서 Windows 파일명 정제, 경로 존재/권한 검사, 설정 영구 저장과 중복 경로 생성 수행.
+- `desktop/test-save-location.cjs`로 경로 재시작 복구/중복 파일 보존/예약 경로/손상된 설정/폴더 삭제 등 자동 회귀 검사.
+- 웹·GitHub Pages·Standalone HTML은 브라우저 보안상 로컬 탐색기 자동 열기를 지원하지 않으며 기존 다운로드 동작 유지. 실제 Windows GUI 실기 테스트는 별도 검증 필요.
